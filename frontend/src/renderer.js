@@ -760,6 +760,60 @@ function appendTranscript(speaker, text, isFinal) {
     document.getElementById('transcript-container').scrollHeight;
 }
 
+// Format bait strategies - sort by score, compact one-line display
+function formatBaitStrategies(result) {
+  try {
+    const data = JSON.parse(result.trim());
+    if (!Array.isArray(data)) return escapeHtml(result);
+
+    // Sort by baiting_score descending
+    data.sort((a, b) => (b.baiting_score || 0) - (a.baiting_score || 0));
+
+    return data.map(item => {
+      const score = item.baiting_score || 0;
+      const scoreColor = score >= 80 ? '#ff3b30' : score >= 60 ? '#ff9500' : '#888';
+      return `<div style="margin-bottom: 4px; font-size: 12px;"><span style="color: ${scoreColor}; font-size: 10px; margin-right: 6px;">[${score}]</span>${escapeHtml(item.strategy || '')}</div>`;
+    }).join('');
+  } catch (e) {
+    return escapeHtml(result);
+  }
+}
+
+// Format evaluation results - compact display
+function formatEvaluation(result) {
+  try {
+    // Support Python dict format (single quotes) by converting to JSON
+    let jsonStr = result.trim();
+    if (jsonStr.startsWith('{') && jsonStr.includes("'")) {
+      // First escape any existing double quotes (they're inside string values)
+      jsonStr = jsonStr.replace(/"/g, '\\"');
+      // Then convert single quotes to double quotes
+      jsonStr = jsonStr.replace(/'/g, '"');
+    }
+    const data = JSON.parse(jsonStr);
+    if (typeof data !== 'object' || data === null) return escapeHtml(result);
+
+    const verdictColor = data.overall_verdict === 'HONEST' ? '#34c759' :
+                         data.overall_verdict === 'FAKING' ? '#ff3b30' : '#ff9500';
+    const scoreColor = data.honesty_score >= 70 ? '#34c759' :
+                       data.honesty_score >= 40 ? '#ff9500' : '#ff3b30';
+
+    let html = `<div style="margin-bottom: 6px;"><span style="color: ${scoreColor}; font-weight: bold;">${data.honesty_score || '?'}</span> <span style="color: ${verdictColor}; font-weight: bold;">${escapeHtml(data.overall_verdict || '?')}</span></div>`;
+
+    if (data.summary) {
+      html += `<div style="font-size: 11px; color: #aaa; margin-bottom: 6px;">${escapeHtml(data.summary)}</div>`;
+    }
+
+    if (data.baiting_incidents && data.baiting_incidents.length > 0) {
+      html += `<div style="font-size: 10px; color: #666; margin-top: 4px;">Incidents: ${data.baiting_incidents.length}</div>`;
+    }
+
+    return html;
+  } catch (e) {
+    return escapeHtml(result);
+  }
+}
+
 // Display analysis results
 function displayAnalysis(mode, result) {
   const container = document.getElementById('strategies-content');
@@ -773,19 +827,29 @@ function displayAnalysis(mode, result) {
   card.className = `strategy-card ${mode}`;
 
   let label = mode.toUpperCase();
-  if (mode === 'bait') label = 'BAITING STRATEGY';
-  else if (mode === 'hint') label = 'TECHNICAL HINTS';
-  else if (mode === 'evaluate') label = 'EVALUATION';
+  let content = escapeHtml(result);
+
+  if (mode === 'bait') {
+    label = 'BAITING STRATEGIES';
+    content = formatBaitStrategies(result);
+  } else if (mode === 'hint') {
+    label = 'TECHNICAL HINTS';
+    // Keep as text, just escape
+    content = `<div style="white-space: pre-wrap;">${escapeHtml(result)}</div>`;
+  } else if (mode === 'evaluate') {
+    label = 'EVALUATION';
+    content = formatEvaluation(result);
+  }
 
   card.innerHTML = `
     <div class="strategy-label">${label}</div>
-    <div class="strategy-content">${escapeHtml(result)}</div>
+    <div class="strategy-content">${content}</div>
   `;
 
-  // For evaluation, also show in evaluation panel
+  // For evaluation, also show in evaluation panel (formatted)
   if (mode === 'evaluate') {
     document.getElementById('evaluation-panel').style.display = 'block';
-    document.getElementById('evaluation-content').innerHTML = `<pre style="white-space: pre-wrap; font-size: 12px; margin: 0;">${escapeHtml(result)}</pre>`;
+    document.getElementById('evaluation-content').innerHTML = content;
   }
 
   container.insertBefore(card, container.firstChild);
@@ -834,18 +898,20 @@ async function triggerEvaluate() {
   }, 2000);
 }
 
-// Load devices when switching to online tab
+// Load devices and sessions when switching to online tab
 const originalShowTab = showTab;
 showTab = function(tabName) {
   originalShowTab(tabName);
   if (tabName === 'online') {
     refreshDevices();
+    loadSessionsList();
   }
 };
 
-// Initial device load if starting on online tab
+// Initial load if starting on online tab
 if (document.getElementById('online').classList.contains('active')) {
   refreshDevices();
+  loadSessionsList();
 }
 
 // =============================================================================
@@ -946,5 +1012,109 @@ async function tunePrompt() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Tune Prompt';
+  }
+}
+
+// =============================================================================
+// Load Previous Sessions
+// =============================================================================
+
+async function loadSessionsList() {
+  try {
+    const res = await fetch(`${API_BASE}/online/sessions`);
+    const data = await res.json();
+    const select = document.getElementById('session-select');
+
+    // Keep first option, remove rest
+    select.innerHTML = '<option value="">Load previous session...</option>';
+
+    (data.sessions || []).forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s.replace('interview_', '').replace(/_/g, ' ');
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.error('[sessions] Failed to load:', err);
+  }
+}
+
+async function loadSelectedSession() {
+  const select = document.getElementById('session-select');
+  const sessionName = select.value;
+  if (!sessionName) {
+    alert('Please select a session');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/online/sessions/${sessionName}`);
+    const data = await res.json();
+
+    if (data.error) {
+      alert('Error: ' + data.error);
+      return;
+    }
+
+    // Load transcript
+    const transcriptContent = document.getElementById('transcript-content');
+    if (data.transcript) {
+      transcriptContent.innerHTML = '';
+      data.transcript.split('\n').forEach(line => {
+        if (!line.trim()) return;
+        const div = document.createElement('div');
+        div.className = 'transcript-line ' + (line.includes('Interviewer:') ? 'interviewer' : 'candidate');
+        div.textContent = line;
+        transcriptContent.appendChild(div);
+      });
+    } else {
+      transcriptContent.innerHTML = '<span style="color: #888;">No transcript</span>';
+    }
+
+    // Load strategies (bait and hints only - evaluations go to separate panel)
+    const strategiesContent = document.getElementById('strategies-content');
+    strategiesContent.innerHTML = '';
+
+    // Load bait strategies
+    (data.bait || []).forEach(item => {
+      displayAnalysis('bait', item.content);
+    });
+
+    // Load hints
+    (data.hint || []).forEach(item => {
+      displayAnalysis('hint', item.content);
+    });
+
+    if (!data.bait?.length && !data.hint?.length) {
+      strategiesContent.innerHTML = '<div style="color: #666; font-size: 12px;">No strategies found in this session.</div>';
+    }
+
+    // Load evaluations into evaluation panel (not strategies)
+    const evalPanel = document.getElementById('evaluation-panel');
+    const evalContent = document.getElementById('evaluation-content');
+    if (data.evaluate?.length) {
+      // Show all evaluations
+      evalContent.innerHTML = data.evaluate.map((item, i) => {
+        const label = data.evaluate.length > 1 ? `<div style="font-size: 9px; color: #666; margin-bottom: 4px;">EVAL ${i + 1}</div>` : '';
+        return `<div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #333;">${label}${formatEvaluation(item.content)}</div>`;
+      }).join('');
+      evalPanel.style.display = 'block';
+    } else {
+      evalPanel.style.display = 'none';
+      evalContent.innerHTML = '';
+    }
+
+    // Hide setup, show controls (in review mode)
+    document.getElementById('online-setup').style.display = 'none';
+    document.getElementById('online-controls').style.display = 'block';
+    document.getElementById('recording-indicator').innerHTML = `
+      <span style="color: #888; font-size: 12px;">Viewing: ${sessionName}</span>
+    `;
+    document.querySelector('#online-controls button[onclick="stopInterview()"]').style.display = 'none';
+
+    console.log('[sessions] Loaded:', sessionName);
+  } catch (err) {
+    console.error('[sessions] Failed to load session:', err);
+    alert('Failed to load session: ' + err.message);
   }
 }

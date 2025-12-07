@@ -355,6 +355,54 @@ def _match_questions_to_utterances(questions: list[dict], utterances: list[str])
     ]
 
 
+@app.get("/online/sessions")
+def list_sessions():
+    """List available interview sessions."""
+    session_base = Path(__file__).parent.parent / "online_logs"
+    if not session_base.exists():
+        return {"sessions": []}
+    sessions = sorted(session_base.glob("interview_*"), reverse=True)
+    return {"sessions": [s.name for s in sessions]}
+
+
+@app.get("/online/sessions/{session_name}")
+def get_session_data(session_name: str):
+    """Load all data from a specific session."""
+    session_dir = Path(__file__).parent.parent / "online_logs" / session_name
+    if not session_dir.exists():
+        return {"error": "Session not found"}
+
+    result = {"session": session_name, "transcript": "", "bait": [], "hint": [], "evaluate": []}
+
+    # Load transcript
+    transcript_file = session_dir / "full_transcript.txt"
+    if transcript_file.exists():
+        result["transcript"] = transcript_file.read_text()
+
+    # Load bait strategies
+    for f in sorted(session_dir.glob("bait_*.txt")):
+        try:
+            result["bait"].append({"file": f.name, "content": f.read_text()})
+        except Exception:
+            pass
+
+    # Load hints
+    for f in sorted(session_dir.glob("hint_*.txt")):
+        try:
+            result["hint"].append({"file": f.name, "content": f.read_text()})
+        except Exception:
+            pass
+
+    # Load evaluations
+    for f in sorted(session_dir.glob("evaluate_*.txt")):
+        try:
+            result["evaluate"].append({"file": f.name, "content": f.read_text()})
+        except Exception:
+            pass
+
+    return result
+
+
 @app.get("/online/rl/questions")
 def get_rl_questions():
     """Get labeled bait questions from most recent session."""
