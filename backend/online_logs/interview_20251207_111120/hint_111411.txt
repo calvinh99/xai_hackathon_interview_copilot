@@ -1,0 +1,5 @@
+1. Can you walk me through the exact code structure inside your JAX function where `lax.map` is applied to the bucketed gradients? Specifically, how do you partition the gradients into buckets, and what does the inner `lax.psum` call look like to enable XLA to fuse and overlap the per-bucket all-reduces with the backward computation?
+
+2. Why does structuring with `lax.map` (over inner `lax.psum`) allow XLA to overlap communication with backward pass computation, whereas a direct `lax.pmap` or standalone `lax.psum` on the full gradients wouldn't? What XLA passes or optimizations (e.g., fusion rules) are key here?
+
+3. You mentioned buffer donation to avoid memory fragmentation—can you explain how you implemented it in this JAX pipeline (e.g., via `jax.lax.with_sharding_constraint` or donation flags in `jax.value_and_grad`)? What specific memory issues did you encounter pre-donation, and how did it interact with the bucketing in `lax.map`?

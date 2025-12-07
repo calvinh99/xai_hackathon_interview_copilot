@@ -1,0 +1,108 @@
+
+[00:05] Interviewer:  Hi Calvin, how's your day?
+[00:09] Interviewer:  Yeah, so, um,
+[00:10] Interviewer:  yeah, I'm doing
+[00:10] Candidate:  Yeah, so, um, yeah, I'm doing good. I
+[00:11] Interviewer:  good. I'm ready for the interview.
+[00:11] Candidate: 'm ready for the interview.
+[00:13] Interviewer:  Cool
+[00:14] Interviewer: . Uh, so I
+[00:15] Interviewer:  read your resume
+[00:16] Interviewer: , you said you
+[00:16] Interviewer:  might
+[00:17] Interviewer:  read the trending pipeline from PyTorch to JAX.
+[00:21] Interviewer:  Can
+[00:22] Interviewer:  you implement a
+[00:23] Interviewer:  custom API to
+[00:24] Interviewer:  learning strategies? Uh, can you
+[00:24] Interviewer:  tell me more about it?
+[00:27] Candidate:  Right,
+[00:28] Candidate:  so we were
+[00:29] Candidate:  using torch for training Llama
+[00:30] Candidate:  3 8b
+[00:30] Candidate: ,
+[00:31] Candidate:  but it was too
+[00:32] Candidate:  slow, and I heard
+[00:33] Candidate:  JAX had room for better optimizations.
+[00:35] Candidate:  So I learned
+[00:36] Candidate:  JAX and migrated
+[00:37] Candidate:  our torch code to JAX.
+[00:38] Candidate:  We achieved
+[00:39] Candidate:  9
+[00:40] Candidate: 2
+[00:40] Candidate: % efficiency
+[00:41] Candidate:  from overlapping
+[00:42] Candidate:  gradient all
+[00:43] Candidate:  reduces
+[00:43] Candidate:  with backward
+[00:44] Candidate:  computation using JAX.lax.map.
+[00:47] Candidate:  And careful
+[00:47] Candidate:  buffer donation to avoid memory fragmentation.
+[01:04] Interviewer:  Um.
+[01:05] Interviewer:  Well.
+[01:07] Interviewer:  Can you?
+[01:11] Interviewer:  So, can
+[01:13] Interviewer:  you answer this,
+[01:14] Interviewer:  why
+[01:15] Interviewer:  do you
+[01:16] Interviewer:  use
+[01:16] Interviewer:  JAX.l
+[01:17] Interviewer: ab.map specifically for overlapping or reduce?
+[01:20] Interviewer:  Instead of
+[01:21] Interviewer: , you know,
+[01:22] Interviewer:  uh, JAX.l
+[01:23] Interviewer: ab, uh,
+[01:24] Interviewer:  JAX.psum or pmap?
+[01:30] Candidate:  Uh,
+[01:30] Candidate:  yeah, let me think
+[01:31] Candidate:  about it
+[01:32] Candidate:  a little bit, um.
+[01:34] Candidate:  I
+[01:34] Candidate: 'm thinking back, um, yeah.
+[01:36] Candidate:  Uh.
+[01:48] Candidate:  Okay, so yeah,
+[01:49] Candidate:  um, yeah, yeah, I
+[01:50] Candidate:  think I know, um.
+[01:53] Candidate:  So at the time.
+[01:56] Candidate:  Um.
+[02:03] Candidate:  Yeah, so, um.
+[02:12] Candidate:  Okay, so basically I.
+[02:13] Candidate:  I used.
+[02:17] Candidate:  lax.map to structure bucketed work.
+[02:20] Candidate:  Inside a single compiled step.
+[02:23] Candidate:  And inside each
+[02:24] Candidate:  iteration,
+[02:24] Candidate:  I still call a
+[02:25] Candidate:  collective like lax.psum.
+[02:27] Candidate:  So
+[02:28] Candidate:  that structure
+[02:29] Candidate:  is
+[02:30] Candidate:  what lets xla
+[02:30] Candidate:  overlap the per-bucket all-reduce.
+[02:32] Candidate:  With the rest of the backward pass.
+[02:34] Interviewer:  Hmm.
+[02:51] Interviewer:  And,
+[02:51] Interviewer:  you know
+[02:52] Interviewer: , I wanna ask another question.
+[02:54] Candidate:  Mhm.
+[02:55] Interviewer:  So, what exactly?
+[02:59] Interviewer:  did you use, uh, for the?
+[03:01] Interviewer:  Um
+[03:02] Interviewer: , X
+[03:03] Interviewer: LA flags
+[03:04] Interviewer:  and also what
+[03:04] Interviewer:  JAX version
+[03:05] Interviewer:  did you
+[03:06] Interviewer:  use to enable the overlap
+[03:07] Interviewer:  of PSUM inside of the?
+[03:09] Interviewer:  Uh, lax map?
+[03:13] Candidate:  Uh, yeah, so,
+[03:14] Candidate:  uh,
+[03:15] Candidate:  I use
+[03:16] Candidate:  like x
+[03:16] Candidate: la and like whatever that came with it.
+[03:19] Candidate:  And I use like version
+[03:20] Candidate:  20 for JAX.
+[03:21] Candidate:  Um.
+[03:23] Candidate:  So, um.
+[03:24] Candidate:  Yeah.

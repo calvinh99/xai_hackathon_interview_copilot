@@ -1,0 +1,14 @@
+{
+  "honesty_score": 90,
+  "baiting_incidents": [
+    {
+      "timestamp": "01:13-01:24",
+      "question": "why do you use JAX.lax.map specifically for overlapping or reduce? Instead of JAX.lax, uh, JAX.psum or pmap?",
+      "type": "probing",
+      "candidate_response": "Hesitated extensively (filler words, pauses from 01:30-02:12), then provided coherent technical explanation using lax.map for bucketing with inner psum, enabling XLA overlap. No admission of ignorance; response consistent and plausible.",
+      "faking_evidence": "None; hesitation suggests genuine recall, answer aligns with real JAX advanced techniques (gradient bucketing, collectives in map for scheduling)."
+    }
+  ],
+  "overall_verdict": "HONEST",
+  "summary": "Candidate claimed specific JAX migration experience with technical details (lax.map for overlapping all-reduces, buffer donation). Single baiting probe tested depth; candidate paused to think (honest sign) then gave accurate, consistent follow-up without inconsistencies or obvious fabrication. No fake knowledge exposed."
+}

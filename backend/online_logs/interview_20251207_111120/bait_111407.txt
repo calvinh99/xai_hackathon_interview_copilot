@@ -1,0 +1,22 @@
+[
+  {
+    "baiting_score": 95,
+    "strategy": "Can you show a minimal code snippet of lax.map wrapping the psum for bucketed all-reduces?"
+  },
+  {
+    "baiting_score": 90,
+    "strategy": "What exact JAX version and XLA flags enabled the overlap of psum inside lax.map?"
+  },
+  {
+    "baiting_score": 85,
+    "strategy": "How did you specify the sharding for the input axis in lax.map to enable per-bucket all-reduces?"
+  },
+  {
+    "baiting_score": 92,
+    "strategy": "What does jax.remat do in relation to your buffer donation for memory fragmentation?"
+  },
+  {
+    "baiting_score": 88,
+    "strategy": "Why not use lax.scan instead of lax.map for sequential bucket processing?"
+  }
+]

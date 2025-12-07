@@ -1,0 +1,5 @@
+1. Can you walk me through the specific JAX code snippet where you used `jax.lax.map` to overlap gradient all-reduces with backward computation? How did you ensure the all-reduce was pipelined correctly with the backward pass under `pmap` or `pjit`, and what sharding constraints did you apply to achieve that 92% efficiency gain?
+
+2. Regarding buffer donation, how did you identify and donate the specific buffers (e.g., activations or gradients) in your JAX transformation graph? Could you explain the `jax.checkify` or `jax.debug` callbacks you used to verify it reduced memory fragmentation, and what fragmentation patterns you observed before vs. after?
+
+3. Migrating Llama 3 8B from PyTorch to JAX involves reimplementing complex components like grouped-query attention and RMSNorm—how did you handle the just-in-time compilation (JIT) stability for these, particularly with dynamic shapes or sequence lengths, and what custom Flax modules or Optax schedulers did you adapt to match PyTorch's behavior?

@@ -1,0 +1,22 @@
+[
+  {
+    "baiting_score": 95,
+    "strategy": "Can you write a minimal code snippet showing how JAX.lax.map overlaps gradient all-reduces with backward computation?"
+  },
+  {
+    "baiting_score": 90,
+    "strategy": "Why use JAX.lax.map specifically for overlapping all-reduces, instead of jax.lax.psum or pmap?"
+  },
+  {
+    "baiting_score": 85,
+    "strategy": "What was the exact PyTorch baseline efficiency (e.g., MFU or throughput) before hitting 92% with JAX?"
+  },
+  {
+    "baiting_score": 88,
+    "strategy": "How did you configure buffer donation in JAX—via flags, custom lowering, or something else?"
+  },
+  {
+    "baiting_score": 80,
+    "strategy": "What sharding strategy did you use for Llama 3 8B parameters across devices?"
+  }
+]

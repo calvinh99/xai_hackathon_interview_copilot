@@ -24,3 +24,4 @@ bun.lockb
 backend/logs/
 backend/online_logs/
 backend/outputs/
+*.wav
