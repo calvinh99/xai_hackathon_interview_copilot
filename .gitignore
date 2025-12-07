@@ -20,3 +20,7 @@ bun.lockb
 
 # build
 **/*.egg-info/
+
+backend/logs/
+backend/online_logs/
+backend/outputs/

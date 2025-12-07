@@ -144,6 +144,18 @@
     .loading { text-align: center; padding: 40px; color: #888; }
     .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #444; border-top-color: #0066ff; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; vertical-align: middle; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* Online mode styles */
+    .transcript-line { margin: 4px 0; }
+    .transcript-line.interviewer { color: #0a84ff; }
+    .transcript-line.candidate { color: #30d158; }
+    .strategy-card { background: #2a2a2a; border-radius: 6px; padding: 12px; margin-bottom: 8px; border-left: 3px solid #6366f1; }
+    .strategy-card.bait { border-left-color: #ff9500; }
+    .strategy-card.hint { border-left-color: #30d158; }
+    .strategy-card.evaluate { border-left-color: #0a84ff; }
+    .strategy-label { font-size: 10px; text-transform: uppercase; color: #888; margin-bottom: 4px; }
+    .strategy-content { font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
 
     /* PDF scrollbar styling */
     #pdf-container::-webkit-scrollbar { width: 8px; }
@@ -201,8 +213,68 @@
       </div>
 
       <div id="online" class="content">
-        <h3>Live Interview</h3>
-        <p>Real-time transcript analysis</p>
+        <!-- Device Selection -->
+        <div id="online-setup">
+          <div class="form-group">
+            <label>Interviewer Audio (Your Mic)</label>
+            <div style="display: flex; gap: 8px;">
+              <select id="interviewer-device" style="flex: 1; padding: 8px; background: #222; border: 1px solid #444; color: #fff; border-radius: 4px;"></select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Candidate Audio (System Audio / Loopback)</label>
+            <div style="display: flex; gap: 8px;">
+              <select id="candidate-device" style="flex: 1; padding: 8px; background: #222; border: 1px solid #444; color: #fff; border-radius: 4px;"></select>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <button class="btn" onclick="refreshDevices()" style="background: #444; flex: 1;">Refresh Devices</button>
+            <button class="btn" id="start-btn" onclick="startInterview()" style="flex: 1;">Start Interview</button>
+          </div>
+        </div>
+
+        <!-- Interview Controls (shown when active) -->
+        <div id="online-controls" style="display: none; margin-bottom: 12px;">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span id="recording-indicator" style="display: flex; align-items: center; gap: 6px;">
+              <span style="width: 10px; height: 10px; background: #ff3b30; border-radius: 50%; animation: pulse 1s infinite;"></span>
+              <span style="color: #ff3b30; font-size: 12px;">Recording</span>
+            </span>
+            <button class="btn" onclick="stopInterview()" style="background: #ff3b30; margin-left: auto;">Stop Interview</button>
+          </div>
+        </div>
+
+        <!-- Live Transcript -->
+        <div class="form-group">
+          <label>Live Transcript</label>
+          <div id="transcript-container" style="background: #1a1a1a; border: 1px solid #333; border-radius: 4px; height: 200px; overflow-y: auto; padding: 10px; font-family: monospace; font-size: 12px; line-height: 1.6;">
+            <div id="transcript-content" style="color: #888;">Waiting to start...</div>
+          </div>
+        </div>
+
+        <!-- Analysis Actions -->
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <button class="btn" id="generate-btn" onclick="triggerGenerate()" disabled style="flex: 1; background: #444;">Generate Strategies</button>
+          <button class="btn" id="evaluate-btn" onclick="triggerEvaluate()" disabled style="flex: 1; background: #444;">Evaluate Interview</button>
+        </div>
+
+        <!-- Strategies Panel -->
+        <div id="strategies-panel">
+          <div class="form-group">
+            <label>AI Strategies</label>
+            <div id="strategies-content" style="background: #1a1a1a; border: 1px solid #333; border-radius: 4px; min-height: 100px; max-height: 300px; overflow-y: auto; padding: 10px;">
+              <div style="color: #666; font-size: 12px;">Click "Generate Strategies" during interview to get baiting questions and technical hints.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Evaluation Results -->
+        <div id="evaluation-panel" style="display: none;">
+          <div class="form-group">
+            <label>Interview Evaluation</label>
+            <div id="evaluation-content" style="background: #1a1a1a; border: 1px solid #333; border-radius: 4px; padding: 10px;"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -77,8 +77,6 @@ function loadTestData() {
   });
 }
 
-let isInterviewActive = false;
-
 function showTab(tabName) {
   document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
@@ -566,4 +564,286 @@ function clearHighlights() {
   document.querySelectorAll('.highlight-layer').forEach(layer => {
     layer.innerHTML = '';
   });
+}
+
+// =============================================================================
+// Online Mode - Live Interview
+// =============================================================================
+
+let onlineEventSource = null;
+let isInterviewRunning = false;
+
+// Fetch and populate audio devices
+async function refreshDevices() {
+  try {
+    const res = await fetch(`${API_BASE}/online/devices`);
+    const data = await res.json();
+
+    const interviewerSelect = document.getElementById('interviewer-device');
+    const candidateSelect = document.getElementById('candidate-device');
+
+    interviewerSelect.innerHTML = '';
+    candidateSelect.innerHTML = '';
+
+    data.devices.forEach(d => {
+      const opt1 = document.createElement('option');
+      opt1.value = d.id;
+      opt1.textContent = `${d.id}: ${d.name}`;
+      if (d.is_default) opt1.textContent += ' (default)';
+      interviewerSelect.appendChild(opt1);
+
+      const opt2 = opt1.cloneNode(true);
+      candidateSelect.appendChild(opt2);
+    });
+
+    console.log('[online] Devices loaded:', data.devices.length);
+  } catch (err) {
+    console.error('[online] Failed to load devices:', err);
+    alert('Failed to load audio devices. Is the backend running?');
+  }
+}
+
+// Start interview session
+async function startInterview() {
+  const interviewerId = parseInt(document.getElementById('interviewer-device').value);
+  const candidateId = parseInt(document.getElementById('candidate-device').value);
+
+  if (isNaN(interviewerId) || isNaN(candidateId)) {
+    alert('Please select audio devices first');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/online/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        interviewer_device_id: interviewerId,
+        candidate_device_id: candidateId
+      })
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      alert('Failed to start: ' + (data.error || 'Unknown error'));
+      return;
+    }
+
+    isInterviewRunning = true;
+    updateOnlineUI(true);
+    connectToEventStream();
+    console.log('[online] Interview started, session:', data.session_dir);
+  } catch (err) {
+    console.error('[online] Failed to start interview:', err);
+    alert('Failed to start interview: ' + err.message);
+  }
+}
+
+// Stop interview session
+async function stopInterview() {
+  try {
+    await fetch(`${API_BASE}/online/stop`, { method: 'POST' });
+  } catch (err) {
+    console.error('[online] Error stopping:', err);
+  }
+
+  isInterviewRunning = false;
+  if (onlineEventSource) {
+    onlineEventSource.close();
+    onlineEventSource = null;
+  }
+  updateOnlineUI(false);
+  console.log('[online] Interview stopped');
+}
+
+// Update UI state for online mode
+function updateOnlineUI(running) {
+  document.getElementById('online-setup').style.display = running ? 'none' : 'block';
+  document.getElementById('online-controls').style.display = running ? 'block' : 'none';
+  document.getElementById('generate-btn').disabled = !running;
+  document.getElementById('evaluate-btn').disabled = !running;
+  document.getElementById('generate-btn').style.background = running ? '#0066ff' : '#444';
+  document.getElementById('evaluate-btn').style.background = running ? '#0066ff' : '#444';
+
+  if (!running) {
+    // Reset transcript display but keep content for review
+    const content = document.getElementById('transcript-content');
+    if (content.innerHTML === '' || content.innerHTML.includes('Waiting to start')) {
+      content.innerHTML = '<span style="color: #888;">Waiting to start...</span>';
+    }
+  }
+}
+
+// Connect to SSE event stream
+function connectToEventStream() {
+  if (onlineEventSource) {
+    onlineEventSource.close();
+  }
+
+  // Reset interim elements
+  interimElements = { Interviewer: null, Candidate: null };
+
+  // Clear transcript for new session
+  document.getElementById('transcript-content').innerHTML = '';
+  document.getElementById('strategies-content').innerHTML = '<div style="color: #666; font-size: 12px;">Click "Generate Strategies" to get baiting questions and hints.</div>';
+  document.getElementById('evaluation-panel').style.display = 'none';
+
+  onlineEventSource = new EventSource(`${API_BASE}/online/events`);
+
+  onlineEventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      handleOnlineEvent(data);
+    } catch (err) {
+      console.error('[online] Failed to parse event:', err);
+    }
+  };
+
+  onlineEventSource.onerror = (err) => {
+    console.error('[online] EventSource error:', err);
+    if (isInterviewRunning) {
+      // Try to reconnect after a delay
+      setTimeout(() => {
+        if (isInterviewRunning) connectToEventStream();
+      }, 2000);
+    }
+  };
+}
+
+// Track interim transcript elements for updating
+let interimElements = {
+  Interviewer: null,
+  Candidate: null
+};
+
+// Handle incoming SSE events
+function handleOnlineEvent(data) {
+  if (data.type === 'transcript') {
+    appendTranscript(data.speaker, data.text, data.is_final);
+  } else if (data.type === 'analysis') {
+    displayAnalysis(data.mode, data.result);
+  } else if (data.type === 'stopped') {
+    isInterviewRunning = false;
+    updateOnlineUI(false);
+  }
+  // Ignore heartbeats
+}
+
+// Append transcript content (handles interim and final)
+function appendTranscript(speaker, text, isFinal) {
+  const container = document.getElementById('transcript-content');
+  const label = speaker === 'Interviewer' ? 'You' : 'Candidate';
+  const cssClass = speaker === 'Interviewer' ? 'interviewer' : 'candidate';
+
+  if (isFinal) {
+    if (interimElements[speaker]) {
+      interimElements[speaker].remove();
+      interimElements[speaker] = null;
+    }
+    const div = document.createElement('div');
+    div.className = `transcript-line ${cssClass}`;
+    div.innerHTML = `<strong>${label}:</strong> ${escapeHtml(text)}`;
+    container.appendChild(div);
+  } else {
+    if (!interimElements[speaker]) {
+      const div = document.createElement('div');
+      div.className = `transcript-line ${cssClass} interim`;
+      div.style.opacity = '0.6';
+      div.style.fontStyle = 'italic';
+      container.appendChild(div);
+      interimElements[speaker] = div;
+    }
+    interimElements[speaker].innerHTML = `<strong>${label}:</strong> ${escapeHtml(text)}...`;
+  }
+
+  document.getElementById('transcript-container').scrollTop =
+    document.getElementById('transcript-container').scrollHeight;
+}
+
+// Display analysis results
+function displayAnalysis(mode, result) {
+  const container = document.getElementById('strategies-content');
+
+  // Clear placeholder if first result
+  if (container.querySelector('div[style*="color: #666"]')) {
+    container.innerHTML = '';
+  }
+
+  const card = document.createElement('div');
+  card.className = `strategy-card ${mode}`;
+
+  let label = mode.toUpperCase();
+  if (mode === 'bait') label = 'BAITING STRATEGY';
+  else if (mode === 'hint') label = 'TECHNICAL HINTS';
+  else if (mode === 'evaluate') label = 'EVALUATION';
+
+  card.innerHTML = `
+    <div class="strategy-label">${label}</div>
+    <div class="strategy-content">${escapeHtml(result)}</div>
+  `;
+
+  // For evaluation, also show in evaluation panel
+  if (mode === 'evaluate') {
+    document.getElementById('evaluation-panel').style.display = 'block';
+    document.getElementById('evaluation-content').innerHTML = `<pre style="white-space: pre-wrap; font-size: 12px; margin: 0;">${escapeHtml(result)}</pre>`;
+  }
+
+  container.insertBefore(card, container.firstChild);
+  container.scrollTop = 0;
+}
+
+// Trigger strategy generation
+async function triggerGenerate() {
+  if (!isInterviewRunning) return;
+
+  const btn = document.getElementById('generate-btn');
+  btn.disabled = true;
+  btn.textContent = 'Generating...';
+
+  try {
+    await fetch(`${API_BASE}/online/trigger/generate`, { method: 'POST' });
+  } catch (err) {
+    console.error('[online] Failed to trigger generate:', err);
+  }
+
+  // Re-enable after delay (results come via SSE)
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.textContent = 'Generate Strategies';
+  }, 2000);
+}
+
+// Trigger interview evaluation
+async function triggerEvaluate() {
+  if (!isInterviewRunning) return;
+
+  const btn = document.getElementById('evaluate-btn');
+  btn.disabled = true;
+  btn.textContent = 'Evaluating...';
+
+  try {
+    await fetch(`${API_BASE}/online/trigger/evaluate`, { method: 'POST' });
+  } catch (err) {
+    console.error('[online] Failed to trigger evaluate:', err);
+  }
+
+  // Re-enable after delay
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.textContent = 'Evaluate Interview';
+  }, 2000);
+}
+
+// Load devices when switching to online tab
+const originalShowTab = showTab;
+showTab = function(tabName) {
+  originalShowTab(tabName);
+  if (tabName === 'online') {
+    refreshDevices();
+  }
+};
+
+// Initial device load if starting on online tab
+if (document.getElementById('online').classList.contains('active')) {
+  refreshDevices();
 }

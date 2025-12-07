@@ -1,29 +1,28 @@
 """Grok/xAI API client using xai-sdk."""
 import os
-from xai_sdk import Client
-from xai_sdk.chat import user, image
-from xai_sdk.chat import user, system
-
-from pydantic import BaseModel
-from typing import Optional, Union
-
-
-client = Client(
-    api_key=os.getenv("XAI_API_KEY"),
-    timeout=3600, # Override default timeout with longer timeout for reasoning models
-)
 import logging
 from pathlib import Path
+from typing import Optional, Union
+
+from pydantic import BaseModel
 from xai_sdk import Client
+from xai_sdk.chat import user, system
 from xai_sdk.tools import x_search
+
 from .config import CLIENT_TIMEOUT, MODEL
 from .utils import load_env
 from .save_session import get_session
 
 log = logging.getLogger(__name__)
 
-# Load .env on import
+# Load .env BEFORE creating client
 load_env()
+
+# Global client for call_grok (used by strategies.py)
+client = Client(
+    api_key=os.getenv("XAI_API_KEY"),
+    timeout=3600,
+)
 
 
 def call_grok(user_prompt: str, system_prompt: str = "", model: str = "grok-4-1-fast-reasoning", is_reasoning=True, max_tokens=512, response_model: Optional[BaseModel] = None) -> Union[str, BaseModel]:

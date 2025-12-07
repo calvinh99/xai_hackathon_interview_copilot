@@ -1,110 +1,100 @@
+"""
+Interview Copilot - Live interview strategies with streaming STT.
+
+Uses xAI's WebSocket streaming STT for real-time transcription of
+interviewer and candidate audio streams.
+"""
+
 import os
 import time
 import threading
-import shutil
 from datetime import datetime
-from queue import Queue, Empty
+from pathlib import Path
+from typing import Callable, Optional
 
-# Importing your specific audio recorder
-from ..online.audio import SystemAudioRecorder
-from ..online.audio import audio_to_text
 from ..common.grok import call_grok
+from .streaming_stt import DualStreamingSTT
 
 # --- Configuration ---
-INTERVIEWER_DEVICE_ID = 2  
-CANDIDATE_DEVICE_ID = 1    
-CHUNK_DURATION = 8         
+INTERVIEWER_DEVICE_ID = 2
+CANDIDATE_DEVICE_ID = 1
+
+# Session directory base (relative to backend/)
+SESSION_BASE_DIR = Path(__file__).parent.parent.parent / "online_logs"
 
 # --- Global State ---
 conversation_log = ""
 current_session_dir = ""
-log_lock = threading.Lock() 
+_session_start_time: Optional[datetime] = None
+log_lock = threading.Lock()
+
+# Callback for transcript updates (set by launch_threads)
+_transcript_callback: Optional[Callable[[str, str, bool], None]] = None
+
 
 def create_session_directory():
     """Creates a unique folder for this interview session."""
-    # todo: allow it to go from existing session
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    session_dir = os.path.join("logs", f"session_{timestamp}")
-    os.makedirs(session_dir, exist_ok=True)
-    os.makedirs(os.path.join(session_dir, "audio_interviewer"), exist_ok=True)
-    os.makedirs(os.path.join(session_dir, "audio_candidate"), exist_ok=True)
-    return session_dir
+    global _session_start_time
+    _session_start_time = datetime.now()
+    timestamp = _session_start_time.strftime("%Y%m%d_%H%M%S")
+    session_dir = SESSION_BASE_DIR / f"interview_{timestamp}"
+    session_dir.mkdir(parents=True, exist_ok=True)
+    return str(session_dir)
+
 
 def checkpoint_conversation():
     """Save transcript to the session folder."""
     global conversation_log, current_session_dir
-    if not current_session_dir: return
-    
+    if not current_session_dir:
+        return
+
     filepath = os.path.join(current_session_dir, "full_transcript.txt")
     try:
         with log_lock:
             current_log = conversation_log
-            
+
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(current_log)
     except Exception as e:
         print(f"Error saving checkpoint: {e}")
-        
-def restore_conversation():
-    """Restores the last conversation log if exists."""
-    global conversation_log, current_session_dir
-    if not current_session_dir: return
-    
-    filepath = os.path.join(current_session_dir, "full_transcript.txt")
-    if os.path.exists(filepath):
-        try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                with log_lock:
-                    conversation_log = f.read()
-        except Exception as e:
-            print(f"Error restoring conversation: {e}")
 
 
-# --- AI Logic (FIXED) ---
-# Now accepts optional log_snapshot parameter to use thread-safe snapshots
+# --- AI Logic ---
+
+def _get_log(snapshot=None):
+    if snapshot is not None:
+        return snapshot
+    with log_lock:
+        return conversation_log
+
 
 def bait(log_snapshot=None):
-    """Generates deception detection strategy.
-    
-    Returns JSON with baiting_score (0-100) and strategy (trick question to ask).
-    """
-    global conversation_log
+    """Generates deception detection strategy."""
     system_prompt = (
         "You are a lie-detection expert. Analyze the transcript for inconsistencies. "
         "Return JSON: {'baiting_score': 0-100, 'strategy': 'Specific trick question to ask'}"
     )
-    
-    if log_snapshot is not None:
-        current_log = log_snapshot
-    else:
-        with log_lock:
-            current_log = conversation_log
-        
-    user_prompt = f"Transcript:\n{current_log}\n\nAnalyze for deception and provide a baiting strategy."
-    # print(user_prompt)
-    return call_grok(user_prompt, system_prompt, is_reasoning=True) 
+    return call_grok(
+        f"Transcript:\n{_get_log(log_snapshot)}\n\nAnalyze for deception and provide a baiting strategy.",
+        system_prompt, is_reasoning=True
+    )
+
 
 def hint(log_snapshot=None):
-    """Generates technical follow-up questions based on candidate's answers."""
-    global conversation_log
+    """Generates technical follow-up questions."""
     system_prompt = (
         "You are a technical interviewer assistant. Based on the candidate's last answer, "
         "generate 3 deep technical follow-up questions that probe their actual understanding. "
         "Focus on areas where they might be faking knowledge."
     )
-    
-    if log_snapshot is not None:
-        current_log = log_snapshot
-    else:
-        with log_lock:
-            current_log = conversation_log
-        
-    user_prompt = f"Transcript:\n{current_log}\n\nGenerate technical follow-up questions."
-    return call_grok(user_prompt, system_prompt, is_reasoning=True)
+    return call_grok(
+        f"Transcript:\n{_get_log(log_snapshot)}\n\nGenerate technical follow-up questions.",
+        system_prompt, is_reasoning=True
+    )
+
 
 def evaluate_interview(log_snapshot=None):
-    """Evaluates technical accuracy and provides interview score."""
-    global conversation_log
+    """Evaluates interview for signs of faking knowledge."""
     system_prompt = (
         "You are evaluating if a candidate fell for baiting questions designed to expose faking knowledge. "
         "Analyze the entire transcript for:\n"
@@ -112,173 +102,136 @@ def evaluate_interview(log_snapshot=None):
         "2. Whether the candidate admitted ignorance honestly or tried to fake knowledge\n"
         "3. Inconsistencies between earlier claims and later responses under pressure\n"
         "4. Signs of fabricated experience or exaggerated expertise\n\n"
-        "Return JSON: {'honesty_score': 0-100, 'baiting_incidents': [{'question': '...', 'response': '...', 'verdict': 'PASSED/FAILED', 'reasoning': '...'}], 'overall_verdict': 'HONEST/FAKING/UNCERTAIN', 'summary': '...'}"
+        "Return JSON: {'honesty_score': 0-100, 'baiting_incidents': [...], 'overall_verdict': 'HONEST/FAKING/UNCERTAIN', 'summary': '...'}"
     )
-    
-    if log_snapshot is not None:
-        current_log = log_snapshot
-    else:
+    return call_grok(
+        f"Transcript:\n{_get_log(log_snapshot)}\n\nAnalyze for signs of faking and evaluate all baiting attempts.",
+        system_prompt, is_reasoning=True
+    )
+
+
+# --- Streaming STT Callback ---
+
+def _get_timestamp():
+    """Get elapsed time since session start as [MM:SS]."""
+    if not _session_start_time:
+        return "[00:00]"
+    elapsed = datetime.now() - _session_start_time
+    mins, secs = divmod(int(elapsed.total_seconds()), 60)
+    return f"[{mins:02d}:{secs:02d}]"
+
+
+def _on_transcript(speaker: str, text: str, is_final: bool):
+    """Called when a transcript arrives from streaming STT."""
+    global conversation_log, _transcript_callback
+
+    if is_final:
+        timestamp = _get_timestamp()
         with log_lock:
-            current_log = conversation_log
-    
-    user_prompt = f"Transcript:\n{current_log}\n\nAnalyze for signs of faking and evaluate all baiting attempts."
-    return call_grok(user_prompt, system_prompt, is_reasoning=True)
+            conversation_log += f"\n{timestamp} {speaker}: {text}"
+            print(f"{'🗣️' if speaker == 'Interviewer' else '👤'} {timestamp} {speaker}: {text}")
 
+    if _transcript_callback:
+        _transcript_callback(speaker, text, is_final)
 
-# --- Dedicated Audio Logging Thread (Producer) ---
-
-def audio_logger_thread(session_dir, processing_queue, stop_event):
-    global INTERVIEWER_DEVICE_ID, CANDIDATE_DEVICE_ID
-    interviewer_rec = SystemAudioRecorder()
-    candidate_rec = SystemAudioRecorder()
-    chunk_index = 0
-    
-    print(f"🎙️ [Audio Logger] Started in: {session_dir}")
-
-    while not stop_event.is_set():
-        filename = f"chunk_{chunk_index:04d}.wav"
-        path_int = os.path.join(session_dir, "audio_interviewer", filename)
-        path_cand = os.path.join(session_dir, "audio_candidate", filename)
-        
-        # 1. Start Recording
-        # print(conversation_log, "!!!!!!!!!!!!!!!!")
-        interviewer_rec.start(path_int, device_index=INTERVIEWER_DEVICE_ID)
-        candidate_rec.start(path_cand, device_index=CANDIDATE_DEVICE_ID)
-        
-        # 2. Record
-        time.sleep(CHUNK_DURATION)
-        
-        # 3. Stop
-        interviewer_rec.stop()
-        candidate_rec.stop()
-        
-        # 4. Notify Consumer
-        processing_queue.put((path_int, path_cand))
-        chunk_index += 1
 
 # --- Main Driver ---
 
-def launch_threads(if_checkpoint, if_generate, if_evaluate, report_analysis):
+def launch_threads(
+    if_checkpoint: Callable[[], bool],
+    if_generate: Callable[[], bool],
+    if_evaluate: Callable[[], bool],
+    report_analysis: Callable[[str, str], None],
+    report_transcript: Optional[Callable[[str, str, bool], None]] = None,
+):
     """
-    Launch the interview copilot threads.
-    
+    Launch the interview copilot with streaming STT.
+
     Args:
         if_checkpoint: Function that returns True when checkpoint should happen
-        if_generate: Function that returns True when hints/baiting strategies should be generated
+        if_generate: Function that returns True when strategies should be generated
         if_evaluate: Function that returns True when interview evaluation should run
-        report_analysis: Callback to report analysis results to frontend - signature: report_analysis(result, mode)
+        report_analysis: Callback to report analysis results - signature: (result, mode)
+        report_transcript: Callback to report transcript updates - signature: (speaker, text, is_final)
     """
-    global conversation_log, current_session_dir
-    
-    current_session_dir = create_session_directory()
-    # restore_conversation()  
-    stop_event = threading.Event()
-    processing_queue = Queue()
+    global conversation_log, current_session_dir, _transcript_callback, INTERVIEWER_DEVICE_ID, CANDIDATE_DEVICE_ID
 
-    # --- 1. Audio Logger Thread ---
-    logger = threading.Thread(
-        target=audio_logger_thread, 
-        args=(current_session_dir, processing_queue, stop_event)
+    current_session_dir = create_session_directory()
+    _transcript_callback = report_transcript
+
+    stop_event = threading.Event()
+
+    # --- 1. Start Streaming STT (with audio saving) ---
+    dual_stt = DualStreamingSTT(
+        interviewer_device_id=INTERVIEWER_DEVICE_ID,
+        candidate_device_id=CANDIDATE_DEVICE_ID,
+        on_transcript=_on_transcript,
+        session_dir=current_session_dir,
     )
-    logger.daemon = True
-    logger.start()
+    dual_stt.start()
+    print(f"🎙️ [Streaming STT] Started for devices {INTERVIEWER_DEVICE_ID} and {CANDIDATE_DEVICE_ID}")
+    print(f"📁 Session: {current_session_dir}")
+
+    # --- 2. Analysis Worker ---
+    def save_strategy(result: str, strategy_type: str):
+        """Save strategy result to session directory."""
+        if not current_session_dir:
+            return
+        timestamp = datetime.now().strftime("%H%M%S")
+        filename = f"{strategy_type}_{timestamp}.txt"
+        filepath = Path(current_session_dir) / filename
+        try:
+            filepath.write_text(result, encoding="utf-8")
+            print(f"📝 Saved {strategy_type} to {filename}")
+        except Exception as e:
+            print(f"⚠️ Failed to save {strategy_type}: {e}")
 
     def analysis_worker(snapshot_log, mode):
-        """
-        Helper for AI calls, runs in its own ephemeral thread.
-        
-        Calls the appropriate AI functions (bait, hint, evaluate_interview)
-        and reports results via report_analysis callback.
-        """
+        """Run AI analysis in a separate thread."""
         try:
             if mode == "generate":
-                # Generate baiting strategies & score
                 bait_result = bait(snapshot_log)
                 report_analysis(bait_result, "bait")
-                
-                # Generate technical follow-up hints
+                save_strategy(bait_result, "bait")
+
                 hint_result = hint(snapshot_log)
                 report_analysis(hint_result, "hint")
-                
+                save_strategy(hint_result, "hint")
+
             elif mode == "evaluate":
-                # Evaluate interview with score
                 eval_result = evaluate_interview(snapshot_log)
                 report_analysis(eval_result, "evaluate")
-                
+                save_strategy(eval_result, "evaluate")
+
         except Exception as e:
             print(f"⚠️ [Analysis Error in {mode}]: {e}")
 
-    # --- 2. Transcriber Loop (Consumer) ---
-    def transcription_loop():
-        global conversation_log
-        print("🧠 [Transcriber] Waiting for audio chunks...")
-        
-        while not stop_event.is_set():
-            try:
-                path_int, path_cand = processing_queue.get(timeout=1)
-                
-                txt_int = audio_to_text(path_int)
-                txt_cand = audio_to_text(path_cand)
-                
-                with log_lock:
-                    if txt_int and len(txt_int.strip()) > 0:
-                        line = f"Interviewer: {txt_int}"
-                        conversation_log += f"\n{line}"
-                        print(f"🗣️ You: {txt_int}")
-
-                    if txt_cand and len(txt_cand.strip()) > 0:
-                        line = f"Candidate: {txt_cand}"
-                        conversation_log += f"\n{line}"
-                        print(f"👤 They: {txt_cand}")
-                
-                if if_checkpoint():
-                    checkpoint_conversation()
-                
-                processing_queue.task_done()
-
-            except Empty:
-                continue 
-            except Exception as e:
-                print(f"⚠️ [Processing Error]: {e}")
-
-    # --- 3. UI Monitor Loop (Controller) ---
+    # --- 3. UI Monitor Loop ---
     def ui_monitor_loop():
-        global conversation_log
         print("⚡ [UI Monitor] Watching for user triggers...")
 
         while not stop_event.is_set():
             try:
-                trigger_gen = if_generate()
-                trigger_eval = if_evaluate()
+                if if_checkpoint():
+                    checkpoint_conversation()
 
-                if trigger_gen or trigger_eval:
-                    # Snapshot the current log immediately for thread safety
+                do_gen, do_eval = if_generate(), if_evaluate()
+                if do_gen or do_eval:
                     with log_lock:
-                        current_snapshot = conversation_log
+                        snapshot = conversation_log
+                    if do_gen:
+                        threading.Thread(target=analysis_worker, args=(snapshot, "generate"), daemon=True).start()
+                    if do_eval:
+                        threading.Thread(target=analysis_worker, args=(snapshot, "evaluate"), daemon=True).start()
 
-                    if trigger_gen:
-                        t = threading.Thread(target=analysis_worker, args=(current_snapshot, "generate"))
-                        t.daemon = True
-                        t.start()
-                    
-                    if trigger_eval:
-                        t = threading.Thread(target=analysis_worker, args=(current_snapshot, "evaluate"))
-                        t.daemon = True
-                        t.start()
-                
                 time.sleep(0.1)
-
             except Exception as e:
                 print(f"⚠️ [UI Monitor Error]: {e}")
                 time.sleep(1)
 
-    # Start threads
-    processor = threading.Thread(target=transcription_loop)
-    processor.daemon = True
-    processor.start()
+        dual_stt.stop()
+        checkpoint_conversation()  # Save final transcript
+        print(f"🛑 [Streaming STT] Stopped - session saved to {current_session_dir}")
 
-    monitor = threading.Thread(target=ui_monitor_loop)
-    monitor.daemon = True
-    monitor.start()
-
+    threading.Thread(target=ui_monitor_loop, daemon=True).start()
     return stop_event

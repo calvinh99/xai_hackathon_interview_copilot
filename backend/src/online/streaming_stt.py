@@ -1,0 +1,194 @@
+"""Streaming STT using xAI WebSocket API for real-time transcription."""
+
+import asyncio
+import base64
+import json
+import os
+import threading
+import queue
+import wave
+from typing import Callable, Optional
+
+import numpy as np
+import sounddevice as sd
+import websockets
+
+SAMPLE_RATE = 16000
+CHANNELS = 1
+CHUNK_SIZE = 1024
+DTYPE = 'int16'
+
+
+class StreamingSTT:
+    """Streams audio from a sounddevice input to xAI's WebSocket STT API."""
+
+    def __init__(self, device_id: int, speaker_label: str,
+                 on_transcript: Callable[[str, str, bool], None],
+                 api_key: Optional[str] = None,
+                 save_audio_path: Optional[str] = None):
+        self.device_id = device_id
+        self.speaker_label = speaker_label
+        self.on_transcript = on_transcript
+        self.api_key = api_key or os.getenv("XAI_API_KEY")
+        self.save_audio_path = save_audio_path
+        self._running = False
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._thread: Optional[threading.Thread] = None
+        self._audio_queue: queue.Queue = queue.Queue()
+        self._audio_buffer: list = []  # Buffer for saving audio
+
+    def start(self):
+        if self._running:
+            return
+        self._running = True
+        self._thread = threading.Thread(target=self._run_async_loop, daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._running = False
+        if self._loop:
+            self._loop.call_soon_threadsafe(self._loop.stop)
+        if self._thread:
+            self._thread.join(timeout=2)
+            self._thread = None
+        self._save_audio()
+
+    def _save_audio(self):
+        if not self.save_audio_path or not self._audio_buffer:
+            return
+        try:
+            audio_data = np.concatenate(self._audio_buffer)
+            with wave.open(self.save_audio_path, 'wb') as wf:
+                wf.setnchannels(CHANNELS)
+                wf.setsampwidth(2)  # 16-bit = 2 bytes
+                wf.setframerate(SAMPLE_RATE)
+                wf.writeframes(audio_data.tobytes())
+            print(f"[{self.speaker_label}] Saved audio to {self.save_audio_path}")
+        except Exception as e:
+            print(f"[{self.speaker_label}] Failed to save audio: {e}")
+
+    def _run_async_loop(self):
+        self._loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
+        try:
+            self._loop.run_until_complete(self._stream_audio())
+        except Exception as e:
+            print(f"[{self.speaker_label}] StreamingSTT error: {e}")
+        finally:
+            self._loop.close()
+            self._loop = None
+
+    async def _stream_audio(self):
+        if not self.api_key:
+            raise ValueError("XAI_API_KEY not set")
+
+        ws_url = "wss://api.x.ai/v1/realtime/audio/transcriptions"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+
+        print(f"[{self.speaker_label}] Connecting to xAI STT (device={self.device_id})")
+
+        audio_task = asyncio.create_task(self._capture_audio())
+        try:
+            async with websockets.connect(ws_url, additional_headers=headers) as ws:
+                print(f"[{self.speaker_label}] Connected")
+                await ws.send(json.dumps({
+                    "type": "config",
+                    "data": {
+                        "encoding": "linear16",
+                        "sample_rate_hertz": SAMPLE_RATE,
+                        "enable_interim_results": True,
+                    },
+                }))
+                await asyncio.gather(
+                    self._send_audio(ws),
+                    self._receive_transcripts(ws)
+                )
+        except websockets.exceptions.ConnectionClosedError as e:
+            print(f"[{self.speaker_label}] WebSocket closed: {e}")
+        except Exception as e:
+            print(f"[{self.speaker_label}] WebSocket error: {e}")
+        finally:
+            audio_task.cancel()
+            try:
+                await audio_task
+            except asyncio.CancelledError:
+                pass
+
+    async def _capture_audio(self):
+        def callback(indata, frames, time_info, status):
+            if status:
+                print(f"[{self.speaker_label}] Audio status: {status}")
+            if self._running:
+                chunk = indata.copy()
+                self._audio_queue.put(chunk)
+                if self.save_audio_path:
+                    self._audio_buffer.append(chunk)
+
+        try:
+            with sd.InputStream(device=self.device_id, samplerate=SAMPLE_RATE,
+                               channels=CHANNELS, dtype=DTYPE,
+                               blocksize=CHUNK_SIZE, callback=callback):
+                print(f"[{self.speaker_label}] Audio capture started")
+                while self._running:
+                    await asyncio.sleep(0.1)
+        except Exception as e:
+            print(f"[{self.speaker_label}] Audio capture error: {e}")
+            self._running = False
+
+    async def _send_audio(self, ws):
+        while self._running:
+            try:
+                audio_data = await asyncio.get_event_loop().run_in_executor(
+                    None, lambda: self._audio_queue.get(timeout=0.1)
+                )
+            except queue.Empty:
+                continue
+            except Exception as e:
+                if self._running:
+                    print(f"[{self.speaker_label}] Send error: {e}")
+                break
+
+            audio_b64 = base64.b64encode(audio_data.tobytes()).decode("utf-8")
+            await ws.send(json.dumps({"type": "audio", "data": {"audio": audio_b64}}))
+
+    async def _receive_transcripts(self, ws):
+        while self._running:
+            try:
+                data = json.loads(await ws.recv())
+                if data.get("data", {}).get("type") == "speech_recognized":
+                    transcript_data = data["data"]["data"]
+                    text = transcript_data.get("transcript", "")
+                    if text.strip():
+                        self.on_transcript(self.speaker_label, text, transcript_data.get("is_final", False))
+            except websockets.exceptions.ConnectionClosedOK:
+                break
+            except websockets.exceptions.ConnectionClosedError as e:
+                print(f"[{self.speaker_label}] WebSocket closed: {e}")
+                break
+            except Exception as e:
+                if self._running:
+                    print(f"[{self.speaker_label}] Receive error: {e}")
+                break
+        self._running = False
+
+
+class DualStreamingSTT:
+    """Manages two StreamingSTT sessions for interviewer and candidate."""
+
+    def __init__(self, interviewer_device_id: int, candidate_device_id: int,
+                 on_transcript: Callable[[str, str, bool], None],
+                 session_dir: Optional[str] = None):
+        interviewer_audio = os.path.join(session_dir, "interviewer.wav") if session_dir else None
+        candidate_audio = os.path.join(session_dir, "candidate.wav") if session_dir else None
+        self.interviewer_stt = StreamingSTT(
+            interviewer_device_id, "Interviewer", on_transcript, save_audio_path=interviewer_audio)
+        self.candidate_stt = StreamingSTT(
+            candidate_device_id, "Candidate", on_transcript, save_audio_path=candidate_audio)
+
+    def start(self):
+        self.interviewer_stt.start()
+        self.candidate_stt.start()
+
+    def stop(self):
+        self.interviewer_stt.stop()
+        self.candidate_stt.stop()
