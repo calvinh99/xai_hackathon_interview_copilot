@@ -1,12 +1,28 @@
 """Grok/xAI API client."""
 import os
-import httpx
+from xai_sdk import Client
+from xai_sdk.chat import user, image
+from xai_sdk.chat import user, system
+
+
+client = Client(
+    api_key=os.getenv("XAI_API_KEY"),
+    timeout=3600, # Override default timeout with longer timeout for reasoning models
+)
 
 XAI_API_KEY = os.getenv("XAI_API_KEY", "")
 XAI_BASE_URL = "https://api.x.ai/v1"
 
 
-async def call_grok(prompt: str, system: str = "") -> str:
+def call_grok(user_prompt: str, system_prompt: str = "", model: str = "grok-4-1-fast-reasoning", is_reasoning=True, max_tokens=512) -> str:
     """Call Grok API with prompt."""
-    # TODO: implement
-    return ""
+    if is_reasoning:
+        chat = client.chat.create(model=model, max_tokens=max_tokens)
+    else:
+        chat = client.chat.create(model=model, max_tokens=max_tokens)
+    chat.append(system(system_prompt))
+    chat.append(user(user_prompt))
+    
+    
+    
+    return chat.sample().content
