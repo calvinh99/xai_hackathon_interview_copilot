@@ -17,3 +17,7 @@ bun.lockb
 # env
 .env
 .env.local
+
+# Audio source code and examples
+backend/src/common/voice-demo-hackathon/
+backend/src/common/xai-voice-examples-main/
