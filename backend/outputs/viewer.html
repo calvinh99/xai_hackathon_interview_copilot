@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session Viewer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'SF Mono', Consolas, monospace; font-size: 13px; background: #fafafa; color: #222; padding: 12px; }
+    .header { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    select, button, input[type="file"] { font-family: inherit; font-size: 12px; padding: 4px 8px; border: 1px solid #ccc; background: #fff; }
+    select { min-width: 280px; }
+    button { cursor: pointer; }
+    button:hover { background: #eee; }
+    .meta { background: #fff; border: 1px solid #ddd; padding: 8px 12px; margin-bottom: 12px; }
+    .meta span { margin-right: 16px; }
+    .meta .label { color: #666; }
+    .calls { display: flex; flex-direction: column; gap: 8px; }
+    .call { background: #fff; border: 1px solid #ddd; }
+    .call-header { display: flex; gap: 12px; padding: 6px 10px; background: #f5f5f5; border-bottom: 1px solid #ddd; cursor: pointer; align-items: center; }
+    .call-header:hover { background: #eee; }
+    .step { font-weight: 600; color: #1a73e8; min-width: 180px; }
+    .time { color: #666; font-size: 11px; }
+    .model { color: #888; font-size: 11px; margin-left: auto; }
+    .call-body { display: none; padding: 10px; }
+    .call.open .call-body { display: block; }
+    .section { margin-bottom: 10px; }
+    .section-title { font-weight: 600; color: #444; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; }
+    .subheading { font-weight: 600; color: #555; margin: 6px 0 4px; font-size: 11px; text-transform: uppercase; }
+    .prompt, .response { background: #f8f8f8; border: 1px solid #e0e0e0; padding: 8px; white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow-y: auto; font-size: 12px; line-height: 1.4; }
+    .response { background: #f0f7ff; }
+    .json-data { margin-top: 8px; }
+    .skill-item { display: inline-block; background: #e8f0fe; border: 1px solid #c2d7f7; padding: 2px 6px; margin: 2px; border-radius: 3px; font-size: 11px; }
+    .skill-item.yes { background: #d4edda; border-color: #a3d9a5; }
+    .skill-item.could_be { background: #fff3cd; border-color: #ffc107; }
+    .skill-item.no { background: #f8d7da; border-color: #f5c6cb; }
+    .source-quote { font-size: 11px; color: #555; margin-left: 8px; display: block; border-left: 2px solid #ddd; padding-left: 6px; margin-top: 2px; }
+    .empty { color: #888; font-style: italic; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 4px 8px; border: 1px solid #ddd; }
+    th { background: #f5f5f5; font-weight: 600; }
+    .expand-btn { font-size: 10px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <select id="fileSelect"><option value="">-- Select session --</option></select>
+    <span>or</span>
+    <input type="file" id="fileInput" accept=".json">
+    <button onclick="loadSelected()">Load</button>
+  </div>
+  <div id="content"></div>
+
+  <script>
+    const fileSelect = document.getElementById('fileSelect');
+    const fileInput = document.getElementById('fileInput');
+    const content = document.getElementById('content');
+
+    const FALLBACK_FILES = [];
+
+    async function initFileList() {
+      const discovered = await discoverJsonFiles();
+      const files = discovered.length ? discovered : FALLBACK_FILES;
+      populateFileSelect(files);
+      if (files.length) {
+        fileSelect.value = files[0];
+        loadSelected();
+      }
+    }
+
+    async function discoverJsonFiles() {
+      try {
+        // When served via http.server, fetching '.' returns a directory listing we can parse.
+        const resp = await fetch('.');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const html = await resp.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const links = Array.from(doc.querySelectorAll('a'));
+        const files = links
+          .map(a => a.getAttribute('href') || '')
+          .map(href => href.split('?')[0]) // remove query strings
+          .filter(href => href.toLowerCase().endsWith('.json'))
+          .map(href => decodeURIComponent(href.split('/').pop() || ''))
+          .filter(Boolean);
+        return Array.from(new Set(files)).sort();
+      } catch (err) {
+        console.warn('Could not auto-discover JSON files:', err);
+        return [];
+      }
+    }
+
+    function populateFileSelect(files) {
+      // Clear existing (keep placeholder)
+      while (fileSelect.options.length > 1) fileSelect.remove(1);
+      files.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f;
+        opt.textContent = f;
+        fileSelect.appendChild(opt);
+      });
+    }
+
+    async function loadSelected() {
+      const selected = fileSelect.value;
+      if (selected) {
+        try {
+          const resp = await fetch(selected);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          render(data);
+        } catch (e) {
+          content.innerHTML = `<div class="empty">Error loading file: ${e.message}</div>`;
+        }
+      }
+    }
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const text = await file.text();
+        try {
+          const data = JSON.parse(text);
+          render(data);
+        } catch (e) {
+          content.innerHTML = `<div class="empty">Invalid JSON: ${e.message}</div>`;
+        }
+      }
+    });
+
+    fileSelect.addEventListener('change', loadSelected);
+
+    function render(data) {
+      let html = '';
+
+      // Meta info
+      html += `<div class="meta">
+        <span><span class="label">Started:</span> ${data.started || 'N/A'}</span>
+        <span><span class="label">Calls:</span> ${data.calls?.length || 0}</span>
+      </div>`;
+
+      // Calls
+      html += '<div class="calls">';
+      (data.calls || []).forEach((call, i) => {
+        const time = call.timestamp ? new Date(call.timestamp).toLocaleTimeString() : '';
+        const model = call.metadata?.model || '';
+        const meta = Object.entries(call.metadata || {})
+          .filter(([k]) => k !== 'model')
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(' | ');
+
+        html += `<div class="call" data-idx="${i}">
+          <div class="call-header" onclick="toggleCall(${i})">
+            <span class="expand-btn">[+]</span>
+            <span class="step">${call.step || 'unknown'}</span>
+            <span class="time">${time}</span>
+            ${meta ? `<span class="time">${meta}</span>` : ''}
+            <span class="model">${model}</span>
+          </div>
+          <div class="call-body">
+            <div class="section">
+              <div class="section-title">Prompt</div>
+              <div class="prompt">${escapeHtml(truncate(call.prompt, 1000))}</div>
+            </div>
+            <div class="section">
+              <div class="section-title">Response</div>
+              ${renderResponse(call.response, call.step)}
+            </div>
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+
+      content.innerHTML = html;
+    }
+
+    function toggleCall(idx) {
+      const el = document.querySelector(`.call[data-idx="${idx}"]`);
+      const btn = el.querySelector('.expand-btn');
+      el.classList.toggle('open');
+      btn.textContent = el.classList.contains('open') ? '[-]' : '[+]';
+    }
+
+    function renderResponse(response, step) {
+      if (!response) return '<div class="empty">No response</div>';
+
+      const rawText = typeof response === 'string'
+        ? response
+        : JSON.stringify(response, null, 2);
+      const rawBlock = `<div class="subheading">Raw</div><div class="response">${escapeHtml(rawText)}</div>`;
+
+      // Try to parse as JSON
+      let parsed = null;
+      try {
+        if (typeof response === 'string') {
+          let clean = response.trim();
+          if (clean.startsWith('```')) clean = clean.replace(/```json?\n?/g, '').replace(/```$/g, '');
+          parsed = JSON.parse(clean);
+        } else {
+          parsed = response;
+        }
+      } catch (e) {}
+
+      if (!parsed) {
+        return rawBlock;
+      }
+
+      let parsedBlock = '';
+
+      // Render based on step type
+      if (step === 'analyze_resume' && Array.isArray(parsed)) {
+        parsedBlock = renderSkills(parsed);
+      }
+      else if (step === 'filter_top_skills' && Array.isArray(parsed)) {
+        parsedBlock = `<div class="json-data">${parsed.map(s => `<span class="skill-item">${escapeHtml(s)}</span>`).join('')}</div>`;
+      }
+      else if (step === 'search_x_profile' && parsed.posts !== undefined) {
+        parsedBlock = renderPosts(parsed.posts);
+      }
+      else {
+        parsedBlock = `<div class="response">${escapeHtml(JSON.stringify(parsed, null, 2))}</div>`;
+      }
+
+      return `${rawBlock}<div class="subheading">Parsed</div>${parsedBlock}`;
+    }
+
+    function renderSkills(skills) {
+      if (!skills.length) return '<div class="empty">No skills found</div>';
+
+      let html = '<table><thead><tr><th>Skill</th><th>Resume Sources</th></tr></thead><tbody>';
+      skills.forEach(s => {
+        const sources = (s.resume_sources || []).map(src => `<span class="source-quote">${escapeHtml(truncate(src, 150))}</span>`).join('');
+        html += `<tr>
+          <td><span class="skill-item">${escapeHtml(s.keyword)}</span></td>
+          <td>${sources || '<span class="empty">-</span>'}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      return html;
+    }
+
+    function renderPosts(posts) {
+      if (!posts || !posts.length) return '<div class="empty">No posts found</div>';
+
+      let html = '<table><thead><tr><th>URL</th><th>Classification</th><th>Quote</th></tr></thead><tbody>';
+      posts.forEach(p => {
+        const cls = p.classification || '';
+        html += `<tr>
+          <td><a href="${escapeHtml(p.url)}" target="_blank">${escapeHtml(p.url)}</a></td>
+          <td><span class="skill-item ${cls}">${cls}</span></td>
+          <td>${escapeHtml(truncate(p.quote || '', 200))}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      return html;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function truncate(str, len) {
+      if (!str) return '';
+      return str.length > len ? str.slice(0, len) + '...' : str;
+    }
+
+    // Auto-discover files and load the first one if possible
+    initFileList();
+  </script>
+</body>
+</html>
