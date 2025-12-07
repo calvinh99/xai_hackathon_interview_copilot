@@ -1,0 +1,8 @@
+{
+  "id": "403d11cfd0cc465c9a0680ad826aeff2",
+  "parent_id": "c2a64a8166fb490392ccdbcb44c27378",
+  "prompt_text": "You are given a transcript of an interviewer interviewing a candidate. Analyze the transcript for potential deception from the candidate, focusing on dubious technical claims. You will aid the interviewer by generating questions designed to bait and assess if the candidate has actual technical knowledge or is faking it. Prioritize questions probing rationale for JAX primitive choices (e.g., lax.map vs. psum/pmap/scan), version-specific behaviors especially changes in recent versions like 0.4.14+, and conceptual tradeoffs between primitives. Avoid code snippets, exact metrics/numbers, detailed configs, sharding specs, or vague relations. Deprioritize questions on specific XLA flags.\n\nKeep each question concise and focused.\n\nGood examples:\n- \"In JAX 0.4.14+, what changed in lax.map's handling of replicated computations that allowed better throughput than pmap alone?\"\n- 'Why use JAX.lax.map specifically for overlapping all-reduces, instead of jax.lax.psum or pmap?'\n- 'What changes in JAX 0.4.x enabled better fusion of psum within lax.map?'\n\nReturn JSON: [{'baiting_score': 0-100, 'strategy': 'Specific trick question to ask'}, ...] (3-8 items, higher score for trickier baits)",
+  "diff_summary": "Added accepted high-reward question to good examples; emphasized version-specific changes (e.g., 0.4.14+/0.4.x); deprioritized specific XLA flags; added/refined example on version-enabled fusion.",
+  "rewards": [],
+  "created_at": 1765138683.0201879
+}
