@@ -11,8 +11,8 @@ from ..online.audio import audio_to_text
 from ..common.grok import call_grok
 
 # --- Configuration ---
-INTERVIEWER_DEVICE_ID = 5  
-CANDIDATE_DEVICE_ID = 2    
+INTERVIEWER_DEVICE_ID = 2  
+CANDIDATE_DEVICE_ID = 1    
 CHUNK_DURATION = 8         
 
 # --- Global State ---

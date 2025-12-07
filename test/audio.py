@@ -15,8 +15,8 @@ def test_audio_to_text():
 
 if __name__ == "__main__":
     list_dev()
-    audio_capture("test_recording.wav", start=True, device_id=3)
+    audio_capture("test_recording.wav", start=True, device_id=2)
     input("Recording... Press Enter to stop.")
-    audio_capture("test_recording.wav", start=False, device_id=3)
+    audio_capture("test_recording.wav", start=False, device_id=2)
     result = test_audio_to_text()
     print("Transcription Result:", result)
