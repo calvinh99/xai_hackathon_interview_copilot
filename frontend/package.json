@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "main": "src/index.js",
   "scripts": {
-    "start": "bunx electron ."
+    "start": "electron ."
   },
   "devDependencies": {
     "electron": "^30.0.0"
