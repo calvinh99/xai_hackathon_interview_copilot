@@ -25,7 +25,7 @@ client = Client(
 )
 
 
-def call_grok(user_prompt: str, system_prompt: str = "", model: str = "grok-4-1-fast-reasoning", is_reasoning=True, max_tokens=512, response_model: Optional[BaseModel] = None) -> Union[str, BaseModel]:
+def call_grok(user_prompt: str, system_prompt: str = "", model: str = "grok-4-1-fast-reasoning", is_reasoning=False, max_tokens=512, response_model: Optional[BaseModel] = None) -> Union[str, BaseModel]:
     """Call Grok API with prompt."""
     if is_reasoning:
         chat = client.chat.create(model=model, max_tokens=max_tokens)

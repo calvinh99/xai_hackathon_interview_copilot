@@ -91,7 +91,7 @@ def hint(log_snapshot=None):
     )
     return call_grok(
         f"Transcript:\n{_get_log(log_snapshot)}\n\nGenerate technical follow-up questions.",
-        system_prompt, is_reasoning=True
+        system_prompt, is_reasoning=False
     )
 
 
@@ -108,7 +108,7 @@ def evaluate_interview(log_snapshot=None):
     )
     return call_grok(
         f"Transcript:\n{_get_log(log_snapshot)}\n\nAnalyze for signs of faking and evaluate all baiting attempts.",
-        system_prompt, is_reasoning=True
+        system_prompt, is_reasoning=False
     )
 
 
