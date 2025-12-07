@@ -11,7 +11,78 @@
       background: rgba(20, 20, 20, 0.95);
       color: #fff;
       display: flex;
+      flex-direction: row;
+    }
+
+    /* PDF Panel - left side, hidden by default */
+    #pdf-panel {
+      width: 0;
+      overflow: hidden;
+      background: rgba(30, 30, 30, 0.95);
+      border-right: 1px solid #333;
+      display: flex;
       flex-direction: column;
+      transition: width 0.3s ease;
+    }
+    #pdf-header {
+      -webkit-app-region: drag;
+      background: rgba(26, 26, 26, 0.98);
+      padding: 10px 14px;
+      color: #888;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+    }
+    #pdf-status { font-size: 11px; color: #666; }
+    #pdf-container {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 15px;
+      gap: 15px;
+    }
+    #pdf-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #555;
+      font-size: 14px;
+    }
+    .page-wrapper {
+      position: relative;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .page-canvas { display: block; background: white; }
+    .highlight-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+    .highlight {
+      position: absolute;
+      background: rgba(255, 230, 0, 0.25);
+      border: 2px solid rgba(255, 180, 0, 0.9);
+      border-radius: 0;
+      box-sizing: border-box;
+      pointer-events: none;
+      mix-blend-mode: multiply;
+    }
+
+    /* Main Panel - right side */
+    #main-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 400px;
     }
 
     /* Drag handle - only the header is draggable */
@@ -45,7 +116,8 @@
 
     /* Skills list */
     .skills-list { margin-top: 16px; }
-    .skill-card { background: #2a2a2a; border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
+    .skill-card { background: #2a2a2a; border-radius: 6px; margin-bottom: 8px; overflow: hidden; border: 2px solid transparent; transition: border-color 0.2s; }
+    .skill-card.selected { border-color: #0066ff; }
     .skill-header { display: flex; align-items: center; padding: 12px; cursor: pointer; gap: 10px; }
     .skill-rank { background: #444; padding: 4px 8px; border-radius: 4px; font-size: 12px; min-width: 28px; text-align: center; }
     .skill-name { flex: 1; font-weight: 500; }
@@ -72,50 +144,70 @@
     .loading { text-align: center; padding: 40px; color: #888; }
     .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #444; border-top-color: #0066ff; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; vertical-align: middle; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* PDF scrollbar styling */
+    #pdf-container::-webkit-scrollbar { width: 8px; }
+    #pdf-container::-webkit-scrollbar-track { background: #1a1a1a; }
+    #pdf-container::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+    #pdf-container::-webkit-scrollbar-thumb:hover { background: #555; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <span class="header-title">Interview Copilot</span>
-    <div class="tabs">
-      <button class="tab active" onclick="showTab('offline')">Offline</button>
-      <button class="tab" onclick="showTab('online')">Online</button>
+  <!-- PDF Panel (left) -->
+  <div id="pdf-panel">
+    <div id="pdf-header">
+      <span>Resume Viewer</span>
+      <span id="pdf-status">Waiting for PDF...</span>
+    </div>
+    <div id="pdf-container">
+      <div id="pdf-placeholder">Upload a resume to view</div>
     </div>
   </div>
 
-  <div class="main">
-
-    <div id="offline" class="content active">
-      <div id="analyze-form">
-        <div class="form-group">
-          <label>Resume PDF</label>
-          <input type="file" id="resume-file" accept=".pdf">
-        </div>
-        <div class="form-group">
-          <label>X Handle (without @)</label>
-          <input type="text" id="x-handle" placeholder="scholarc1314" value="scholarc1314">
-        </div>
-        <div class="form-group">
-          <label>Job Description</label>
-          <textarea id="job-description" placeholder="Paste job description here..."></textarea>
-        </div>
-        <button class="btn" id="analyze-btn" onclick="runAnalysis()">Analyze Candidate</button>
+  <!-- Main Panel (right) -->
+  <div id="main-panel">
+    <div class="header">
+      <span class="header-title">Interview Copilot</span>
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('offline')">Offline</button>
+        <button class="tab" onclick="showTab('online')">Online</button>
       </div>
-
-      <div id="loading" class="loading" style="display:none;">
-        <span class="spinner"></span><span id="loading-text">Starting analysis...</span>
-        <div id="progress-log" style="margin-top: 16px; text-align: left; font-family: monospace; font-size: 11px; max-height: 200px; overflow-y: auto; background: #1a1a1a; padding: 8px; border-radius: 4px;"></div>
-      </div>
-
-      <div id="results" class="skills-list" style="display:none;"></div>
     </div>
 
-    <div id="online" class="content">
-      <h3>Live Interview</h3>
-      <p>Real-time transcript analysis</p>
+    <div class="main">
+      <div id="offline" class="content active">
+        <div id="analyze-form">
+          <div class="form-group">
+            <label>Resume PDF</label>
+            <input type="file" id="resume-file" accept=".pdf">
+          </div>
+          <div class="form-group">
+            <label>X Handle (without @)</label>
+            <input type="text" id="x-handle" placeholder="scholarc1314" value="scholarc1314">
+          </div>
+          <div class="form-group">
+            <label>Job Description</label>
+            <textarea id="job-description" placeholder="Paste job description here..."></textarea>
+          </div>
+          <button class="btn" id="analyze-btn" onclick="runAnalysis()">Analyze Candidate</button>
+        </div>
+
+        <div id="loading" class="loading" style="display:none;">
+          <span class="spinner"></span><span id="loading-text">Starting analysis...</span>
+          <div id="progress-log" style="margin-top: 16px; text-align: left; font-family: monospace; font-size: 11px; max-height: 200px; overflow-y: auto; background: #1a1a1a; padding: 8px; border-radius: 4px;"></div>
+        </div>
+
+        <div id="results" class="skills-list" style="display:none;"></div>
+      </div>
+
+      <div id="online" class="content">
+        <h3>Live Interview</h3>
+        <p>Real-time transcript analysis</p>
+      </div>
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>
