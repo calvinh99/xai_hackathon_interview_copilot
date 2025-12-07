@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from ..common.grok import call_grok
+from ..prompt import bait_system_prompt
 from .streaming_stt import DualStreamingSTT
 
 # --- Configuration ---
@@ -70,7 +71,8 @@ def _get_log(snapshot=None):
 
 def bait(log_snapshot=None):
     """Generates deception detection strategy."""
-    system_prompt = (
+    prompt_version = bait_system_prompt.latest()
+    system_prompt = prompt_version.prompt_text if prompt_version else (
         "You are given a transcript of an interviewer interviewing a candidate. Analyze the transcript for potential deception from the candidate. You will aid the interviewer by generating questions designed to bait and assess if the candidate has actual technical knowledge or is faking it. Keep each question concise and focused.\n\n"
         "Return JSON: [{'baiting_score': 0-100, 'strategy': 'Specific trick question to ask'}, ...]"
     )

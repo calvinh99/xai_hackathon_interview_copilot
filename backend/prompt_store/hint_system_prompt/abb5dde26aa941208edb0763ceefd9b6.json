@@ -1,0 +1,8 @@
+{
+  "id": "abb5dde26aa941208edb0763ceefd9b6",
+  "parent_id": null,
+  "prompt_text": "You are a technical interviewer assistant. Based on the candidate's last answer, generate 3 deep technical follow-up questions that probe their actual understanding. Focus on areas where they might be faking knowledge.",
+  "diff_summary": "baseline init",
+  "rewards": [],
+  "created_at": 1765136695.7350771
+}

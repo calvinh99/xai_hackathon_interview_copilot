@@ -847,3 +847,104 @@ showTab = function(tabName) {
 if (document.getElementById('online').classList.contains('active')) {
   refreshDevices();
 }
+
+// =============================================================================
+// Online RL - Prompt Tuning
+// =============================================================================
+
+let rlPanelOpen = false;
+
+async function launchOnlineRL() {
+  const btn = document.getElementById('launch-rl-btn');
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
+
+  try {
+    const res = await fetch(`${API_BASE}/online/rl/questions`);
+    const data = await res.json();
+
+    if (data.error && !data.questions?.length) {
+      alert('Error: ' + data.error);
+      return;
+    }
+
+    // Show panel
+    const panel = document.getElementById('rl-panel');
+    panel.style.width = '400px';
+    rlPanelOpen = true;
+    ipcRenderer.send('expand-window-for-rl', { rlWidth: 400 });
+
+    // Update session info
+    document.getElementById('rl-session-info').textContent =
+      data.session ? `Session: ${data.session}` : 'No session loaded';
+
+    // Render questions
+    renderRLQuestions(data.questions || []);
+
+    // Reset tune result
+    document.getElementById('tune-result').style.display = 'none';
+  } catch (err) {
+    console.error('[rl] Failed to load questions:', err);
+    alert('Failed to load questions: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Launch Online RL';
+  }
+}
+
+function closeRLPanel() {
+  const panel = document.getElementById('rl-panel');
+  panel.style.width = '0';
+  rlPanelOpen = false;
+  ipcRenderer.send('collapse-window-for-rl');
+}
+
+function renderRLQuestions(questions) {
+  const container = document.getElementById('rl-questions');
+
+  if (!questions.length) {
+    container.innerHTML = '<div style="color: #666;">No bait questions found</div>';
+    return;
+  }
+
+  container.innerHTML = questions.map((q, i) => {
+    const statusClass = q.accepted ? 'accepted' : 'rejected';
+    const statusLabel = q.accepted ? 'ACCEPTED' : 'NOT USED';
+    return `
+      <div class="rl-question-item ${statusClass}">
+        <div class="rl-question-label ${statusClass}">${statusLabel}</div>
+        <div>${escapeHtml(q.question)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function tunePrompt() {
+  const btn = document.getElementById('tune-btn');
+  btn.disabled = true;
+  btn.textContent = 'Tuning...';
+
+  try {
+    const res = await fetch(`${API_BASE}/online/rl/tune`, { method: 'POST' });
+    const data = await res.json();
+
+    if (data.error) {
+      alert('Tuning failed: ' + data.error);
+      return;
+    }
+
+    // Show result
+    document.getElementById('tune-result').style.display = 'block';
+    document.getElementById('prev-prompt').textContent = data.prev_prompt || '';
+    document.getElementById('new-prompt').textContent = data.new_prompt || '';
+    document.getElementById('diff-summary').textContent = data.diff_summary || '';
+
+    console.log('[rl] Tuning complete, new version:', data.new_version_id);
+  } catch (err) {
+    console.error('[rl] Tuning failed:', err);
+    alert('Tuning failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Tune Prompt';
+  }
+}

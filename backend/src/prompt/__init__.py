@@ -6,7 +6,7 @@ text on first initialization; subsequent loads reuse existing history.
 
 from .prompt import SystemPrompt
 from .constant import BASELINE_DIR, TUNER_SYSTEM_PROMPT
-from backend.src.common.file_utils import load_text
+from ..common.file_utils import load_text
 
 interview_baseline_prompt = SystemPrompt(
     "interview_baseline",

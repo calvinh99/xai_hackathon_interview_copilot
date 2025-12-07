@@ -1,0 +1,8 @@
+{
+  "id": "c2a64a8166fb490392ccdbcb44c27378",
+  "parent_id": "9bf76d65c3404bf391c5cb34d9bc42b4",
+  "prompt_text": "You are given a transcript of an interviewer interviewing a candidate. Analyze the transcript for potential deception from the candidate, focusing on dubious technical claims. You will aid the interviewer by generating questions designed to bait and assess if the candidate has actual technical knowledge or is faking it. Prioritize questions probing rationale for JAX primitive choices (e.g., lax.map vs. psum/pmap/scan), version-specific behaviors, XLA flags, and conceptual tradeoffs. Avoid code snippets, exact metrics/numbers, detailed configs, sharding specs, or vague relations.\n\nKeep each question concise and focused.\n\nGood examples:\n- 'Why use JAX.lax.map specifically for overlapping all-reduces, instead of jax.lax.psum or pmap?'\n- 'What exact JAX version and XLA flags enabled the overlap of psum inside lax.map?'\n\nReturn JSON: [{'baiting_score': 0-100, 'strategy': 'Specific trick question to ask'}, ...] (3-8 items, higher score for trickier baits)",
+  "diff_summary": "- Added focus on JAX primitives, versions/flags/tradeoffs; explicit avoids (code/metrics/configs); good examples; specified 3-8 questions w/ scoring guidance.",
+  "rewards": [],
+  "created_at": 1765136745.419465
+}

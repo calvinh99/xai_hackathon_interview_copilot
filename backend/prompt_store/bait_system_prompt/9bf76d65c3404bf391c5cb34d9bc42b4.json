@@ -1,0 +1,59 @@
+{
+  "id": "9bf76d65c3404bf391c5cb34d9bc42b4",
+  "parent_id": null,
+  "prompt_text": "You are given a transcript of an interviewer interviewing a candidate. Analyze the transcript for potential deception from the candidate. You will aid the interviewer by generating questions designed to bait and assess if the candidate has actual technical knowledge or is faking it. Keep each question concise and focused.\n\nReturn JSON: [{'baiting_score': 0-100, 'strategy': 'Specific trick question to ask'}, ...]",
+  "diff_summary": "baseline init",
+  "rewards": [
+    {
+      "question": "Can you write a minimal code snippet showing how JAX.lax.map overlaps gradient all-reduces with backward computation?",
+      "accepted": false,
+      "ts": 1765136730.959857
+    },
+    {
+      "question": "Why use JAX.lax.map specifically for overlapping all-reduces, instead of jax.lax.psum or pmap?",
+      "accepted": true,
+      "ts": 1765136730.960784
+    },
+    {
+      "question": "What was the exact PyTorch baseline efficiency (e.g., MFU or throughput) before hitting 92% with JAX?",
+      "accepted": false,
+      "ts": 1765136730.961817
+    },
+    {
+      "question": "How did you configure buffer donation in JAX\u2014via flags, custom lowering, or something else?",
+      "accepted": false,
+      "ts": 1765136730.962409
+    },
+    {
+      "question": "What sharding strategy did you use for Llama 3 8B parameters across devices?",
+      "accepted": false,
+      "ts": 1765136730.963059
+    },
+    {
+      "question": "Can you show a minimal code snippet of lax.map wrapping the psum for bucketed all-reduces?",
+      "accepted": false,
+      "ts": 1765136730.9639318
+    },
+    {
+      "question": "What exact JAX version and XLA flags enabled the overlap of psum inside lax.map?",
+      "accepted": true,
+      "ts": 1765136730.96454
+    },
+    {
+      "question": "How did you specify the sharding for the input axis in lax.map to enable per-bucket all-reduces?",
+      "accepted": false,
+      "ts": 1765136730.965064
+    },
+    {
+      "question": "What does jax.remat do in relation to your buffer donation for memory fragmentation?",
+      "accepted": false,
+      "ts": 1765136730.9655528
+    },
+    {
+      "question": "Why not use lax.scan instead of lax.map for sequential bucket processing?",
+      "accepted": false,
+      "ts": 1765136730.9662368
+    }
+  ],
+  "created_at": 1765136695.7346718
+}

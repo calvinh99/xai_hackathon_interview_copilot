@@ -15,6 +15,9 @@ import sounddevice as sd
 from src.offline import run_full_analysis
 from src.online import strategies
 from src.online.streaming_stt import SystemAudioSTT, DualStreamingSTT
+from src.prompt import bait_system_prompt
+from src.prompt.prompt_tuner import PromptTuner, TuningReward
+from src.common.grok import call_grok
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 log = logging.getLogger(__name__)
@@ -255,3 +258,171 @@ def online_events():
             yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+# =============================================================================
+# Online RL - Prompt Tuning
+# =============================================================================
+
+def _get_most_recent_session() -> Path | None:
+    """Find most recent interview session folder."""
+    session_base = Path(__file__).parent.parent / "online_logs"
+    if not session_base.exists():
+        return None
+    sessions = sorted(session_base.glob("interview_*"), reverse=True)
+    return sessions[0] if sessions else None
+
+
+def _load_bait_questions(session_dir: Path) -> list[dict]:
+    """Load all bait questions from bait_*.txt files in session."""
+    questions = []
+    for bait_file in sorted(session_dir.glob("bait_*.txt")):
+        try:
+            data = json.loads(bait_file.read_text())
+            for item in data:
+                questions.append({
+                    "question": item.get("strategy", ""),
+                    "baiting_score": item.get("baiting_score", 0),
+                })
+        except Exception as e:
+            log.warning(f"Failed to parse {bait_file}: {e}")
+    return questions
+
+
+def _parse_interviewer_utterances(transcript: str) -> list[str]:
+    """Parse transcript and concatenate consecutive interviewer lines into utterances."""
+    lines = transcript.strip().split("\n")
+    utterances = []
+    current_utterance = []
+
+    for line in lines:
+        if "Interviewer:" in line:
+            # Extract text after "Interviewer:"
+            text = line.split("Interviewer:", 1)[1].strip()
+            current_utterance.append(text)
+        else:
+            # Different speaker, flush current utterance
+            if current_utterance:
+                full_text = " ".join(current_utterance).strip()
+                if len(full_text) > 10:  # Skip very short fragments
+                    utterances.append(full_text)
+                current_utterance = []
+
+    # Flush remaining
+    if current_utterance:
+        full_text = " ".join(current_utterance).strip()
+        if len(full_text) > 10:
+            utterances.append(full_text)
+
+    return utterances
+
+
+class BaitMatchResponse(BaseModel):
+    matches: list[dict]  # [{question_idx: int, utterance_idx: int, confidence: float}]
+
+
+def _match_questions_to_utterances(questions: list[dict], utterances: list[str]) -> list[dict]:
+    """Use Grok to match bait questions to interviewer utterances."""
+    if not questions or not utterances:
+        return [{"question": q["question"], "accepted": False} for q in questions]
+
+    # Build prompt for Grok
+    q_list = "\n".join([f"{i}. {q['question']}" for i, q in enumerate(questions)])
+    u_list = "\n".join([f"{i}. {u}" for i, u in enumerate(utterances)])
+
+    system_prompt = (
+        "You are a semantic matcher. Given a list of generated bait questions and interviewer utterances, "
+        "determine which questions the interviewer actually asked (semantically similar, not exact match). "
+        "Return JSON: {\"matches\": [{\"question_idx\": int, \"utterance_idx\": int, \"confidence\": 0-1}, ...]}. "
+        "Only include matches with confidence > 0.7. A question can match at most one utterance."
+    )
+    user_prompt = f"Generated bait questions:\n{q_list}\n\nInterviewer utterances:\n{u_list}"
+
+    try:
+        resp: BaitMatchResponse = call_grok(
+            user_prompt, system_prompt,
+            is_reasoning=False, max_tokens=1024,
+            response_model=BaitMatchResponse
+        )
+        matched_indices = {m["question_idx"] for m in resp.matches}
+    except Exception as e:
+        log.error(f"Failed to match questions: {e}")
+        matched_indices = set()
+
+    return [
+        {"question": q["question"], "accepted": i in matched_indices}
+        for i, q in enumerate(questions)
+    ]
+
+
+@app.get("/online/rl/questions")
+def get_rl_questions():
+    """Get labeled bait questions from most recent session."""
+    session_dir = _get_most_recent_session()
+    if not session_dir:
+        return {"error": "No interview sessions found", "questions": []}
+
+    # Load bait questions
+    questions = _load_bait_questions(session_dir)
+    if not questions:
+        return {"error": "No bait questions found", "questions": [], "session": session_dir.name}
+
+    # Load transcript
+    transcript_file = session_dir / "full_transcript.txt"
+    if not transcript_file.exists():
+        return {"error": "No transcript found", "questions": questions, "session": session_dir.name}
+
+    transcript = transcript_file.read_text()
+    utterances = _parse_interviewer_utterances(transcript)
+
+    # Match questions to utterances
+    labeled = _match_questions_to_utterances(questions, utterances)
+
+    return {"questions": labeled, "session": session_dir.name}
+
+
+@app.post("/online/rl/tune")
+def tune_bait_prompt():
+    """Tune the bait prompt based on labeled questions."""
+    # Get labeled questions
+    session_dir = _get_most_recent_session()
+    if not session_dir:
+        return {"error": "No interview sessions found"}
+
+    questions = _load_bait_questions(session_dir)
+    transcript_file = session_dir / "full_transcript.txt"
+
+    if not questions or not transcript_file.exists():
+        return {"error": "Missing questions or transcript"}
+
+    transcript = transcript_file.read_text()
+    utterances = _parse_interviewer_utterances(transcript)
+    labeled = _match_questions_to_utterances(questions, utterances)
+
+    # Get current prompt
+    current_version = bait_system_prompt.latest()
+    if not current_version:
+        return {"error": "No prompt version found"}
+    prev_prompt = current_version.prompt_text
+
+    # Create rewards
+    rewards = [
+        TuningReward(question=q["question"], accepted=q["accepted"])
+        for q in labeled
+    ]
+
+    # Tune
+    tuner = PromptTuner()
+    try:
+        new_version_id = tuner.tune(bait_system_prompt, rewards)
+        new_version = bait_system_prompt.load_version(new_version_id)
+        return {
+            "success": True,
+            "prev_prompt": prev_prompt,
+            "new_prompt": new_version.prompt_text,
+            "diff_summary": new_version.diff_summary,
+            "new_version_id": new_version_id,
+        }
+    except Exception as e:
+        log.error(f"Tuning failed: {e}")
+        return {"error": str(e)}
