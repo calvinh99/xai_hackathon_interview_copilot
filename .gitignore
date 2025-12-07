@@ -17,3 +17,6 @@ bun.lockb
 # env
 .env
 .env.local
+
+# build
+**/*.egg-info/

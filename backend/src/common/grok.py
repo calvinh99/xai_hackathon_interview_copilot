@@ -4,6 +4,9 @@ from xai_sdk import Client
 from xai_sdk.chat import user, image
 from xai_sdk.chat import user, system
 
+from pydantic import BaseModel
+from typing import Optional, Union
+
 
 client = Client(
     api_key=os.getenv("XAI_API_KEY"),
@@ -23,7 +26,7 @@ log = logging.getLogger(__name__)
 load_env()
 
 
-def call_grok(user_prompt: str, system_prompt: str = "", model: str = "grok-4-1-fast-reasoning", is_reasoning=True, max_tokens=512) -> str:
+def call_grok(user_prompt: str, system_prompt: str = "", model: str = "grok-4-1-fast-reasoning", is_reasoning=True, max_tokens=512, response_model: Optional[BaseModel] = None) -> Union[str, BaseModel]:
     """Call Grok API with prompt."""
     if is_reasoning:
         chat = client.chat.create(model=model, max_tokens=max_tokens)
@@ -32,9 +35,12 @@ def call_grok(user_prompt: str, system_prompt: str = "", model: str = "grok-4-1-
     chat.append(system(system_prompt))
     chat.append(user(user_prompt))
     
+    if response_model:
+        _, rm_response = chat.parse(response_model)
+        return rm_response
+    else:
+        return chat.sample().content
     
-    
-    return chat.sample().content
 def get_client(timeout: int = CLIENT_TIMEOUT) -> Client:
     """Get xAI SDK client."""
     api_key = os.getenv("XAI_API_KEY") or os.getenv("OFFLINE_XAI_API_KEY", "")
@@ -116,3 +122,4 @@ def search_x(handle: str, prompt: str, model: str = MODEL) -> str | None:
     except Exception as e:
         log.error(f"search_x error for @{handle}: {e}")
         return None
+    
