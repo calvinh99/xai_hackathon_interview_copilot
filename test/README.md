@@ -33,6 +33,14 @@ here, the device ID 3 is the audio input device (microphone) and device ID 4 is 
 
 
 2. run the online interview test by 
+
+in terminal
 ```
 python -m test.strategies
 ```
+
+in server
+```
+python -m test.server
+```
+
