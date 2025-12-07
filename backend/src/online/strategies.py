@@ -102,25 +102,17 @@ def hint(log_snapshot=None):
     user_prompt = f"Transcript:\n{current_log}\n\nGenerate technical follow-up questions."
     return call_grok(user_prompt, system_prompt, is_reasoning=True)
 
-def eval_baiting(response, strategy):
-    """Evaluates if the candidate fell for the bait."""
-    system_prompt = (
-        "You are evaluating if a candidate fell for a baiting question designed to expose faking. "
-        "Did the candidate admit ignorance honestly, or did they try to fake knowledge? "
-        "Verdict: PASSED (honest) or FAILED (tried to fake it). Explain your reasoning."
-    )
-    user_prompt = f"Baiting Strategy Used: {strategy}\nCandidate's Response: {response}\n\nEvaluate."
-    return call_grok(user_prompt, system_prompt, is_reasoning=True)
-
 def evaluate_interview(log_snapshot=None):
     """Evaluates technical accuracy and provides interview score."""
     global conversation_log
     system_prompt = (
-        "You are an expert interview evaluator. Analyze the transcript and evaluate:\n"
-        "1. Technical depth and accuracy of the candidate's answers\n"
-        "2. Consistency of their claims throughout the interview\n"
-        "3. Signs of genuine knowledge vs potential faking\n"
-        "Return JSON: {'interview_score': 0-100, 'strengths': [...], 'concerns': [...], 'recommendation': 'PASS/FAIL/UNCERTAIN'}"
+        "You are evaluating if a candidate fell for baiting questions designed to expose faking knowledge. "
+        "Analyze the entire transcript for:\n"
+        "1. Instances where the candidate was asked trick or probing questions\n"
+        "2. Whether the candidate admitted ignorance honestly or tried to fake knowledge\n"
+        "3. Inconsistencies between earlier claims and later responses under pressure\n"
+        "4. Signs of fabricated experience or exaggerated expertise\n\n"
+        "Return JSON: {'honesty_score': 0-100, 'baiting_incidents': [{'question': '...', 'response': '...', 'verdict': 'PASSED/FAILED', 'reasoning': '...'}], 'overall_verdict': 'HONEST/FAKING/UNCERTAIN', 'summary': '...'}"
     )
     
     if log_snapshot is not None:
@@ -129,7 +121,7 @@ def evaluate_interview(log_snapshot=None):
         with log_lock:
             current_log = conversation_log
     
-    user_prompt = f"Transcript:\n{current_log}\n\nProvide comprehensive evaluation."
+    user_prompt = f"Transcript:\n{current_log}\n\nAnalyze for signs of faking and evaluate all baiting attempts."
     return call_grok(user_prompt, system_prompt, is_reasoning=True)
 
 
