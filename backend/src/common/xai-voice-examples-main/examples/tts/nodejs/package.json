@@ -1,0 +1,28 @@
+{
+  "name": "xai-tts-nodejs",
+  "version": "1.0.0",
+  "description": "XAI Text-to-Speech Example - Node.js",
+  "type": "module",
+  "main": "tts.ts",
+  "scripts": {
+    "start": "tsx tts.ts",
+    "dev": "tsx watch tts.ts"
+  },
+  "keywords": [
+    "xai",
+    "tts",
+    "text-to-speech",
+    "audio"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "tsx": "^4.7.1",
+    "typescript": "^5.4.5"
+  }
+}

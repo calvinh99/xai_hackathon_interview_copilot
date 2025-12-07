@@ -53,6 +53,35 @@ def analyze_image(image_path: str | Path, prompt: str, model: str = MODEL, timeo
         client.files.delete(uploaded.id)
 
 
+def analyze_image_sequence(image_paths: list[str | Path], prompt: str, model: str = MODEL, timeout: int = CLIENT_TIMEOUT) -> str:
+    """Analyze a sequence of images with Grok using Files API."""
+    client = get_client(timeout)
+    uploaded_files = []
+    
+    try:
+        # Upload all images
+        for path in image_paths:
+            path_obj = Path(path)
+            uploaded = client.files.upload(path_obj.read_bytes(), filename=path_obj.name)
+            uploaded_files.append(uploaded)
+            
+        # Create chat with all file attachments
+        chat = client.chat.create(model=model)
+        file_attachments = [file(f.id) for f in uploaded_files]
+        chat.append(user(prompt, *file_attachments))
+        
+        return chat.sample().content
+        
+    finally:
+        # Cleanup all files
+        for f in uploaded_files:
+            try:
+                client.files.delete(f.id)
+            except Exception:
+                pass  # Best effort cleanup
+
+
+
 def search_x(handle: str, prompt: str, model: str = MODEL) -> str:
     """Search X profile using Grok with x_search tool."""
     client = get_client()

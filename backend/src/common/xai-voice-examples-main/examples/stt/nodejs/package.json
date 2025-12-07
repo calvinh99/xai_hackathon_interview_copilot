@@ -1,0 +1,30 @@
+{
+  "name": "xai-stt-nodejs",
+  "version": "1.0.0",
+  "description": "XAI Speech-to-Text Example - Node.js",
+  "type": "module",
+  "main": "stt.ts",
+  "scripts": {
+    "start": "tsx stt.ts",
+    "dev": "tsx watch stt.ts"
+  },
+  "keywords": [
+    "xai",
+    "stt",
+    "speech-to-text",
+    "transcription"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.5",
+    "form-data": "^4.0.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "tsx": "^4.7.1",
+    "typescript": "^5.4.5"
+  }
+}
