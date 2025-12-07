@@ -8,8 +8,9 @@ from pydantic import BaseModel, Field  # type: ignore[import-not-found]
 
 from ..common.grok import call_grok
 from .prompt import PromptVersion, SystemPrompt
+from .constant import MAX_TUNING_TOKENS
 
-MAX_TUNING_TOKENS = 1024
+
 logger = logging.getLogger(__name__)
 
 @dataclass
