@@ -6,5 +6,6 @@ dependencies = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
     "httpx>=0.25.0",
-    "pypdf>=3.17.0",
+    "xai-sdk",
+    "python-multipart>=0.0.6",
 ]

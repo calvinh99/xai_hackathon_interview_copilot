@@ -1,0 +1,84 @@
+{
+  "started": "2025-12-07T02:18:38.631951",
+  "calls": [
+    {
+      "timestamp": "2025-12-07T02:19:09.836840",
+      "step": "analyze_resume",
+      "prompt": "Read this resume. Output ONLY valid JSON (no markdown, no explanation) - a list of skill keywords that this candidate claims expertise in.\n\nFor each skill, output a dict with:\n- \"keyword\": the skill name (e.g., \"JAX\", \"LLM post-training\", \"distributed systems\")\n- \"resume_sources\": list of exact quotes from resume that demonstrate this skill (bullet points, skills section entries, etc.)\n\nFocus on technical skills relevant to ML/AI/systems engineering. Be specific - \"JAX\" not \"programming\".\n\nOutpu...",
+      "response": "[{\"keyword\":\"JAX\",\"resume_sources\":[\"JAX \u2022 PyTorch \u2022 XLA\",\"Migrated training pipeline from PyTorch to JAX/Flax, implementing custom pjit sharding strategies (FSDP + tensor parallelism) that scaled Llama2-13B training to 64 A100 GPUs with 92% compute efficiency.\",\"Built memory profiling tools to track JAX buffer allocations across training steps, identifying rematerialization opportunities that reduced HBM usage by 28%.\",\"Implemented AlphaZero from scratch in JAX with jit-compiled MCTS and vectorized self-play. Achieved 50x speedup over naive Python through XLA fusion of tree search operations.\"]},{\"keyword\":\"PyTorch\",\"resume_sources\":[\"JAX \u2022 PyTorch \u2022 XLA\",\"Migrated training pipeline from PyTorch to JAX/Flax, implementing custom pjit sharding strategies (FSDP + tensor parallelism) that scaled Llama2-13B training to 64 A100 GPUs with 92% compute efficiency.\"]},{\"keyword\":\"XLA\",\"resume_sources\":[\"JAX \u2022 PyTorch \u2022 XLA\",\"Debugged XLA compilation failures and memory OOM issues using HLO graph analysis; implemented custom sharding annotations to reduce peak memory by 40% on 70B parameter models.\",\"Optimized Stable Diffusion inference by analyzing XLA fusion patterns and implementing custom scheduling for UNet attention blocks, reducing sampling latency by 2.1x on single GPU.\",\"Achieved 50x speedup over naive Python through XLA fusion of tree search operations.\"]},{\"keyword\":\"vLLM\",\"resume_sources\":[\"vLLM \u2022 TensorRT-LLM\",\"Optimized inference serving with continuous batching and KV-cache memory management in vLLM; reduced P99 latency by 45% while increasing throughput 3x on A100 clusters.\"]},{\"keyword\":\"TensorRT-LLM\",\"resume_sources\":[\"vLLM \u2022 TensorRT-LLM\",\"Integrated TensorRT-LLM for production inference; implemented INT8 weight-only quantization and speculative decoding, reducing latency by 4x while maintaining <1% quality degradation.\"]},{\"keyword\":\"HuggingFace Transformers\",\"resume_sources\":[\"HuggingFace Transformers\"]},{\"keyword\":\"Triton\",\"resume_sources\":[\"Triton \u2022 CUDA Runtime\",\"Wrote custom Triton kernels for fused attention and RMSNorm, achieving 2.3x speedup over cuDNN baselines by optimizing shared memory tiling and register allocation.\"]},{\"keyword\":\"CUDA Runtime\",\"resume_sources\":[\"Triton \u2022 CUDA Runtime\"]},{\"keyword\":\"NCCL\",\"resume_sources\":[\"NCCL \u2022 cuDNN\",\"Profiled and optimized distributed LLM training across multi-node GPU clusters using NCCL collectives, reducing all-reduce communication overhead by 35% through gradient bucketing and overlap with compute.\"]},{\"keyword\":\"cuDNN\",\"resume_sources\":[\"NCCL \u2022 cuDNN\",\"achieving 2.3x speedup over cuDNN baselines by optimizing shared memory tiling and register allocation.\"]},{\"keyword\":\"NVIDIA Nsight\",\"resume_sources\":[\"NVIDIA Nsight \u2022 xprof\"]},{\"keyword\":\"xprof\",\"resume_sources\":[\"NVIDIA Nsight \u2022 xprof\"]},{\"keyword\":\"FSDP\",\"resume_sources\":[\"FSDP \u2022 DeepSpeed\",\"implementing custom pjit sharding strategies (FSDP + tensor parallelism)\"]},{\"keyword\":\"DeepSpeed\",\"resume_sources\":[\"FSDP \u2022 DeepSpeed\"]},{\"keyword\":\"Tensor Parallelism\",\"resume_sources\":[\"Tensor/Pipeline Parallelism\",\"FSDP + tensor parallelism\"]},{\"keyword\":\"Pipeline Parallelism\",\"resume_sources\":[\"Tensor/Pipeline Parallelism\"]},{\"keyword\":\"Gradient Checkpointing\",\"resume_sources\":[\"Gradient Checkpointing\"]},{\"keyword\":\"Docker\",\"resume_sources\":[\"Linux \u2022 Docker \u2022 AWS\",\"Docker with async task queues.\"]},{\"keyword\":\"AWS\",\"resume_sources\":[\"Linux \u2022 Docker \u2022 AWS\",\"AWS EC2\"]},{\"keyword\":\"Slurm\",\"resume_sources\":[\"A100/H100 GPUs \u2022 Slurm\"]},{\"keyword\":\"Linux\",\"resume_sources\":[\"Linux \u2022 Docker \u2022 AWS\"]},{\"keyword\":\"CUDA\",\"resume_sources\":[\"Python \u2022 C++ \u2022 CUDA\"]},{\"keyword\":\"Flax\",\"resume_sources\":[\"JAX/Flax\"]},{\"keyword\":\"pjit\",\"resume_sources\":[\"custom pjit sharding strategies\"]}]",
+      "metadata": {
+        "model": "grok-4-1-fast",
+        "filename": "tmp78o8_a6b.pdf"
+      }
+    },
+    {
+      "timestamp": "2025-12-07T02:19:16.422353",
+      "step": "filter_top_skills",
+      "prompt": "Given these skills extracted from a resume and a job description, select the TOP 10 most relevant skills for this job.\n\nSkills from resume:\n[\"JAX\", \"PyTorch\", \"XLA\", \"vLLM\", \"TensorRT-LLM\", \"HuggingFace Transformers\", \"Triton\", \"CUDA Runtime\", \"NCCL\", \"cuDNN\", \"NVIDIA Nsight\", \"xprof\", \"FSDP\", \"DeepSpeed\", \"Tensor Parallelism\", \"Pipeline Parallelism\", \"Gradient Checkpointing\", \"Docker\", \"AWS\", \"Slurm\", \"Linux\", \"CUDA\", \"Flax\", \"pjit\"]\n\nJob description:\nMember of Technical Staff, JAX & Compiler\r\n...",
+      "response": "[\"JAX\", \"XLA\", \"xprof\", \"CUDA Runtime\", \"Triton\", \"Flax\", \"pjit\", \"CUDA\", \"Tensor Parallelism\", \"Pipeline Parallelism\"]",
+      "metadata": {
+        "model": "grok-4-1-fast"
+      }
+    },
+    {
+      "timestamp": "2025-12-07T02:19:24.768922",
+      "step": "search_x_profile",
+      "prompt": "Search @scholarc1314's X/Twitter posts for any content related to: Triton\n\nFor each relevant post you find, classify it:\n- \"yes\": Post demonstrates real expertise/deep knowledge (detailed technical insights, original work, teaching others)\n- \"could_be\": Post shows interest but unclear depth (sharing articles, asking questions, surface-level comments)\n- \"no\": Post suggests lack of knowledge (asking basic questions, admitting unfamiliarity)\n\nOutput ONLY valid JSON (no markdown):\n{\"posts\": [{\"url\":...",
+      "response": "{\"posts\": []}",
+      "metadata": {
+        "model": "grok-4-1-fast",
+        "handle": "scholarc1314"
+      }
+    },
+    {
+      "timestamp": "2025-12-07T02:19:28.658686",
+      "step": "search_x_profile",
+      "prompt": "Search @scholarc1314's X/Twitter posts for any content related to: Flax\n\nFor each relevant post you find, classify it:\n- \"yes\": Post demonstrates real expertise/deep knowledge (detailed technical insights, original work, teaching others)\n- \"could_be\": Post shows interest but unclear depth (sharing articles, asking questions, surface-level comments)\n- \"no\": Post suggests lack of knowledge (asking basic questions, admitting unfamiliarity)\n\nOutput ONLY valid JSON (no markdown):\n{\"posts\": [{\"url\": \"...",
+      "response": "{\"posts\": []}",
+      "metadata": {
+        "model": "grok-4-1-fast",
+        "handle": "scholarc1314"
+      }
+    },
+    {
+      "timestamp": "2025-12-07T02:19:30.707996",
+      "step": "search_x_profile",
+      "prompt": "Search @scholarc1314's X/Twitter posts for any content related to: JAX\n\nFor each relevant post you find, classify it:\n- \"yes\": Post demonstrates real expertise/deep knowledge (detailed technical insights, original work, teaching others)\n- \"could_be\": Post shows interest but unclear depth (sharing articles, asking questions, surface-level comments)\n- \"no\": Post suggests lack of knowledge (asking basic questions, admitting unfamiliarity)\n\nOutput ONLY valid JSON (no markdown):\n{\"posts\": [{\"url\": \"t...",
+      "response": "{\"posts\":[{\"url\":\"https://x.com/scholarc1314/status/1997541240641143213\",\"content\":\"Recommends a Hugging Face blog as a great resource for learning JAX.\",\"label\":\"could_be\"}]}",
+      "metadata": {
+        "model": "grok-4-1-fast",
+        "handle": "scholarc1314"
+      }
+    },
+    {
+      "timestamp": "2025-12-07T02:19:32.614298",
+      "step": "search_x_profile",
+      "prompt": "Search @scholarc1314's X/Twitter posts for any content related to: CUDA\n\nFor each relevant post you find, classify it:\n- \"yes\": Post demonstrates real expertise/deep knowledge (detailed technical insights, original work, teaching others)\n- \"could_be\": Post shows interest but unclear depth (sharing articles, asking questions, surface-level comments)\n- \"no\": Post suggests lack of knowledge (asking basic questions, admitting unfamiliarity)\n\nOutput ONLY valid JSON (no markdown):\n{\"posts\": [{\"url\": \"...",
+      "response": "{\"posts\":[{\"url\":\"https://x.com/scholarc1314/status/1990576964374311083\",\"content\":\"Argues that CUDA and inference optimization provide deep model architecture understanding, unlike evals/data/training.\",\"label\":\"could_be\"},{\"url\":\"https://x.com/scholarc1314/status/1990497367960006688\",\"content\":\"Asks if someone is writing their own CUDA kernel for optimizations.\",\"label\":\"could_be\"},{\"url\":\"https://x.com/scholarc1314/status/1980357991972106525\",\"content\":\"States they are trying to learn CUDA and understand the GPU instead of using PyTorch.\",\"label\":\"no\"},{\"url\":\"https://x.com/scholarc1314/status/1978029054289682632\",\"content\":\"Day 4/30 mastering GPU: discusses Siboehm's sgemm CUDA optimization blog, napkin math for perf bounds, global memory coalescing, warps, plans to implement on LeetGPU.\",\"label\":\"yes\"},{\"url\":\"https://x.com/scholarc1314/status/1977309984104071248\",\"content\":\"Day 3/30: Explains tiled matrix multiply in CUDA kernels, shared/global memory usage, tile loading, FMAs, 75% speedup on LeetGPU, observations on boundary conditions and warp divergence.\",\"label\":\"yes\"}]}",
+      "metadata": {
+        "model": "grok-4-1-fast",
+        "handle": "scholarc1314"
+      }
+    },
+    {
+      "timestamp": "2025-12-07T02:19:34.363483",
+      "step": "search_x_profile",
+      "prompt": "Search @scholarc1314's X/Twitter posts for any content related to: xprof\n\nFor each relevant post you find, classify it:\n- \"yes\": Post demonstrates real expertise/deep knowledge (detailed technical insights, original work, teaching others)\n- \"could_be\": Post shows interest but unclear depth (sharing articles, asking questions, surface-level comments)\n- \"no\": Post suggests lack of knowledge (asking basic questions, admitting unfamiliarity)\n\nOutput ONLY valid JSON (no markdown):\n{\"posts\": [{\"url\": ...",
+      "response": "{\"posts\": []}",
+      "metadata": {
+        "model": "grok-4-1-fast",
+        "handle": "scholarc1314"
+      }
+    },
+    {
+      "timestamp": "2025-12-07T02:19:35.576239",
+      "step": "search_x_profile",
+      "prompt": "Search @scholarc1314's X/Twitter posts for any content related to: Pipeline Parallelism\n\nFor each relevant post you find, classify it:\n- \"yes\": Post demonstrates real expertise/deep knowledge (detailed technical insights, original work, teaching others)\n- \"could_be\": Post shows interest but unclear depth (sharing articles, asking questions, surface-level comments)\n- \"no\": Post suggests lack of knowledge (asking basic questions, admitting unfamiliarity)\n\nOutput ONLY valid JSON (no markdown):\n{\"po...",
+      "response": "{\"posts\": []}",
+      "metadata": {
+        "model": "grok-4-1-fast",
+        "handle": "scholarc1314"
+      }
+    }
+  ]
+}

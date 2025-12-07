@@ -1,0 +1,32 @@
+Member of Technical Staff, JAX & Compiler
+Palo Alto, CA; San Francisco, CA
+About xAI
+xAI’s mission is to create AI systems that can accurately understand the universe and aid humanity in its pursuit of knowledge. Our team is small, highly motivated, and focused on engineering excellence. This organization is for individuals who appreciate challenging themselves and thrive on curiosity. We operate with a flat organizational structure. All employees are expected to be hands-on and to contribute directly to the company’s mission. Leadership is given to those who show initiative and consistently deliver excellence. Work ethic and strong prioritization skills are important. All engineers are expected to have strong communication skills. They should be able to concisely and accurately share knowledge with their teammates.
+
+Tech Stack
+Python / C++
+JAX
+XLA Compiler
+MLIR Infrastructure
+Location
+The role is based in the Bay Area [San Francisco and Palo Alto]. Candidates are expected to be located near the Bay Area or open to relocation.
+
+Focus
+Develop in-house JAX or compiler/runtime features to fulfill the need of our high-performance large-scale LLM training with different hardware architecture (Hopper, Grace Blackwell).
+Develop and use innovative toolings for debugging distributed programs, profiling train steps and memory consumptions over time.
+Understand CUDA runtime and its interactions with upper-level framework.
+Support a wide range of cutting-edge LLM research/production tasks.
+Ideal Experience (at least one from below)
+JAX/XLA Expertise: Deep knowledge of JAX core and its interaction with the XLA compiler and runtime.
+Compiler Optimization: A strong understanding of compiler optimizations (e.g., memory assignment, scheduling, fusions) and proficiency with distributed profiling tools like xprof.
+Distributed LLM Training: Hands-on experience training large-scale LLMs with JAX (on GPU or TPU) and applying various parallelism strategies to complex use cases.
+Kernel Compiler Experience: Practical experience with kernel compilers such as Triton, Pallas, Mosaic, or CuteDSL.
+Collaboration: Excellent communication skills for close collaboration with our pretraining and reasoning teams.
+Interview Process
+After submitting your application, the team reviews your CV and statement of exceptional work. If your application passes this stage, you will be invited to a 15-minute interview (“phone interview”) during which a member of our team will ask some basic questions. If you clear the initial phone interview, you will enter the main process, which consists of four technical interviews:
+
+Coding assessment in a language of your choice.
+Systems hands-on: Demonstrate practical skills in a live problem-solving session.
+Project deep-dive: Present your past exceptional work to a small audience.
+Meet and greet with the wider team.
+Our goal is to finish the main process within one week. All interviews will be conducted via Google Meet.

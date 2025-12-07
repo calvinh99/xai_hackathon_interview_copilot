@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Resume Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: rgba(30, 30, 30, 0.95);
+      overflow: auto;
+      font-family: system-ui, -apple-system, sans-serif;
+      color: #ccc;
+    }
+    #header {
+      -webkit-app-region: drag;
+      background: rgba(26, 26, 26, 0.98);
+      padding: 10px 14px;
+      color: #888;
+      font-size: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #333;
+    }
+    #header-title {
+      font-weight: 500;
+    }
+    #status {
+      font-size: 11px;
+      color: #666;
+    }
+    #pdf-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 15px;
+      gap: 15px;
+      min-height: calc(100vh - 40px);
+    }
+    #placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: calc(100vh - 80px);
+      color: #555;
+      font-size: 14px;
+    }
+    .page-wrapper {
+      position: relative;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .page-canvas {
+      display: block;
+      background: white;
+    }
+    .highlight-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+    .highlight {
+      position: absolute;
+      background: rgba(255, 230, 0, 0.25);
+      border: 2px solid rgba(255, 180, 0, 0.9);
+      border-radius: 0;
+      box-sizing: border-box;
+      pointer-events: none;
+      mix-blend-mode: multiply;
+    }
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #1a1a1a; }
+    ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <span id="header-title">Resume Viewer</span>
+    <span id="status">Waiting for PDF...</span>
+  </div>
+  <div id="pdf-container">
+    <div id="placeholder">Upload a resume to view</div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="pdf-renderer.js"></script>
+</body>
+</html>
