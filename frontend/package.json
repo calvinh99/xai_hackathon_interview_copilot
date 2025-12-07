@@ -1,0 +1,11 @@
+{
+  "name": "interview-copilot",
+  "version": "0.1.0",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "bunx electron ."
+  },
+  "devDependencies": {
+    "electron": "^30.0.0"
+  }
+}

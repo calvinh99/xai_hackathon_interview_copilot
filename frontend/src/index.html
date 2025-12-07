@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Interview Copilot</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: rgba(20, 20, 20, 0.9);
+      color: #fff;
+      height: 100vh;
+      padding: 16px;
+      -webkit-app-region: drag;
+    }
+    button, input, textarea { -webkit-app-region: no-drag; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab { padding: 8px 16px; background: #333; border: none; color: #fff; cursor: pointer; border-radius: 4px; }
+    .tab.active { background: #0066ff; }
+    .content { padding: 16px; background: rgba(40,40,40,0.8); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('offline')">Offline</button>
+    <button class="tab" onclick="showTab('online')">Online</button>
+  </div>
+  <div id="offline" class="content">
+    <h3>Pre-Interview Analysis</h3>
+    <p>Upload resume, paste X profile URL, job description</p>
+    <!-- TODO: form inputs -->
+  </div>
+  <div id="online" class="content" style="display:none;">
+    <h3>Live Interview</h3>
+    <p>Real-time transcript analysis</p>
+    <!-- TODO: live view -->
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>

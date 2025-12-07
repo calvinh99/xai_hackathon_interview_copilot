@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.python-version
+
+# uv
+uv.lock
+
+# bun/node
+node_modules/
+bun.lockb
+
+# env
+.env
+.env.local
