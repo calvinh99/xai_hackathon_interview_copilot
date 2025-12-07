@@ -29,7 +29,7 @@ class SystemAudioRecorder:
 
     def _file_writer(self, filepath):
         """Writes audio data to file in a separate thread."""
-        with sf.SoundFile(filepath, mode='x', samplerate=self.sample_rate, 
+        with sf.SoundFile(filepath, mode='w', samplerate=self.sample_rate, 
                           channels=self.channels) as file:
             while self.recording or not self.q.empty():
                 try:
