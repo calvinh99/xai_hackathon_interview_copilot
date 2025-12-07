@@ -14,6 +14,7 @@ import sounddevice as sd
 
 from src.offline import run_full_analysis
 from src.online import strategies
+from src.online.streaming_stt import SystemAudioSTT, DualStreamingSTT
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 log = logging.getLogger(__name__)
@@ -150,13 +151,25 @@ def list_audio_devices():
     """List available audio input devices."""
     devices = sd.query_devices()
     result = []
+
+    # Add system audio option if available (macOS only)
+    if SystemAudioSTT.is_available():
+        result.append({
+            "id": DualStreamingSTT.SYSTEM_AUDIO_DEVICE,  # -1
+            "name": "System Audio (macOS)",
+            "channels": 2,
+            "is_default": False,
+            "is_system_audio": True
+        })
+
     for i, d in enumerate(devices):
         if d["max_input_channels"] > 0:  # Only input devices
             result.append({
                 "id": i,
                 "name": d["name"],
                 "channels": d["max_input_channels"],
-                "is_default": i == sd.default.device[0]
+                "is_default": i == sd.default.device[0],
+                "is_system_audio": False
             })
     return {"devices": result}
 
